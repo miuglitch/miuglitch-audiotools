@@ -16,19 +16,21 @@ DisintegrateProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // Amount: 0.0 to 1.0 (displayed as 0-100%)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "amount", "Amount",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f),
+        juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
         0.0f));
 
-    // Min Drop Time: 1ms to 500ms
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         "minDropMs", "Min Drop Time",
         juce::NormalisableRange<float>(1.0f, 500.0f, 0.1f),
         1.0f));
 
-    // Stereo Link: on/off
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        "jitter", "Jitter",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
+        0.0f));
+
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         "stereoLink", "Stereo Link",
         true));
@@ -36,7 +38,7 @@ DisintegrateProcessor::createParameterLayout()
     return { params.begin(), params.end() };
 }
 
-void DisintegrateProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
+void DisintegrateProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/)
 {
     disintegrate.prepare(sampleRate, getTotalNumInputChannels());
 }
@@ -46,16 +48,16 @@ void DisintegrateProcessor::releaseResources() {}
 void DisintegrateProcessor::processBlock(juce::AudioBuffer<float>& buffer,
                                           juce::MidiBuffer&)
 {
-    // Read parameters
-    float amount     = apvts.getRawParameterValue("amount")->load();
+    float amount     = apvts.getRawParameterValue("amount")->load() / 100.0f;
     float minDropMs  = apvts.getRawParameterValue("minDropMs")->load();
+    float jitter     = apvts.getRawParameterValue("jitter")->load() / 100.0f;
     bool  stereoLink = apvts.getRawParameterValue("stereoLink")->load() > 0.5f;
 
     disintegrate.setAmount(amount);
     disintegrate.setMinDropMs(minDropMs);
+    disintegrate.setJitter(jitter);
     disintegrate.setStereoLink(stereoLink);
 
-    // Get raw channel pointers and process
     float* channels[32];
     for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
         channels[ch] = buffer.getWritePointer(ch);

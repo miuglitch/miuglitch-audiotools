@@ -1,23 +1,19 @@
 cmake_minimum_required(VERSION 3.22)
 project(Disintegrate VERSION 0.1.0)
 
-# Where is JUCE on your machine?
 if(NOT DEFINED JUCE_PATH)
     set(JUCE_PATH "C:/JUCE" CACHE PATH "Path to JUCE")
 endif()
 
-# Where is GlitchCore?
 if(NOT DEFINED GLITCHCORE_PATH)
     set(GLITCHCORE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../glitchcore" CACHE PATH "Path to GlitchCore")
 endif()
 
-# Pull in JUCE and GlitchCore
 add_subdirectory(${JUCE_PATH} JUCE-build EXCLUDE_FROM_ALL)
 add_subdirectory(${GLITCHCORE_PATH} GlitchCore-build)
 
-# Define the plugin
 juce_add_plugin(Disintegrate
-    COMPANY_NAME "Miuglitch"
+    COMPANY_NAME "MIUGLITCH"
     PLUGIN_MANUFACTURER_CODE Miug
     PLUGIN_CODE Dsin
     IS_SYNTH FALSE
@@ -30,13 +26,21 @@ juce_add_plugin(Disintegrate
     PRODUCT_NAME "Disintegrate"
 )
 
-# Our source files
 target_sources(Disintegrate PRIVATE
     source/PluginProcessor.cpp
     source/PluginEditor.cpp
 )
 
-# Link to JUCE and GlitchCore
+target_include_directories(Disintegrate
+    PRIVATE
+        ${GLITCHCORE_PATH}/dsp/disintegrate
+)
+
+target_compile_definitions(Disintegrate
+    PUBLIC
+        JUCE_VST3_CAN_REPLACE_VST2=0
+)
+
 target_link_libraries(Disintegrate
     PRIVATE
         GlitchCore

@@ -1,6 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "../dsp/disintegrate/Disintegrate.h"
+#include "Disintegrate.h"
 
 class DisintegrateProcessor : public juce::AudioProcessor
 {

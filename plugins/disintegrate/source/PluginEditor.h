@@ -14,18 +14,18 @@ public:
 private:
     DisintegrateProcessor& processor;
 
-    // Controls
     juce::Slider amountKnob;
     juce::Slider minDropKnob;
+    juce::Slider jitterKnob;
     juce::ToggleButton stereoLinkButton;
 
-    // Labels
     juce::Label amountLabel;
     juce::Label minDropLabel;
+    juce::Label jitterLabel;
 
-    // Attachments — keep knobs in sync with parameters automatically
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> amountAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> minDropAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> jitterAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> stereoLinkAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DisintegrateEditor)

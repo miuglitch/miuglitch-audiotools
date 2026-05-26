@@ -6,7 +6,8 @@ DisintegrateEditor::DisintegrateEditor(DisintegrateProcessor& p)
     // Amount knob
     amountKnob.setSliderStyle(juce::Slider::RotaryVerticalDrag);
     amountKnob.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
-    amountKnob.setRange(0.0, 1.0);
+    amountKnob.setRange(0.0, 100.0, 1.0);
+    amountKnob.setTextValueSuffix("%");
     addAndMakeVisible(amountKnob);
 
     amountLabel.setText("Amount", juce::dontSendNotification);
@@ -16,7 +17,7 @@ DisintegrateEditor::DisintegrateEditor(DisintegrateProcessor& p)
     // Min Drop Time knob
     minDropKnob.setSliderStyle(juce::Slider::RotaryVerticalDrag);
     minDropKnob.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
-    minDropKnob.setRange(1.0, 500.0);
+    minDropKnob.setRange(1.0, 500.0, 0.1);
     minDropKnob.setTextValueSuffix(" ms");
     addAndMakeVisible(minDropKnob);
 
@@ -24,20 +25,33 @@ DisintegrateEditor::DisintegrateEditor(DisintegrateProcessor& p)
     minDropLabel.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(minDropLabel);
 
+    // Jitter knob
+    jitterKnob.setSliderStyle(juce::Slider::RotaryVerticalDrag);
+    jitterKnob.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+    jitterKnob.setRange(0.0, 100.0, 1.0);
+    jitterKnob.setTextValueSuffix("%");
+    addAndMakeVisible(jitterKnob);
+
+    jitterLabel.setText("Jitter", juce::dontSendNotification);
+    jitterLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(jitterLabel);
+
     // Stereo Link toggle
     stereoLinkButton.setButtonText("Stereo Link");
     stereoLinkButton.setToggleState(true, juce::dontSendNotification);
     addAndMakeVisible(stereoLinkButton);
 
     // Attach controls to parameters
-    amountAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>
+    amountAttachment     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>
                             (processor.apvts, "amount", amountKnob);
-    minDropAttachment   = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>
+    minDropAttachment    = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>
                             (processor.apvts, "minDropMs", minDropKnob);
+    jitterAttachment     = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>
+                            (processor.apvts, "jitter", jitterKnob);
     stereoLinkAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>
                             (processor.apvts, "stereoLink", stereoLinkButton);
 
-    setSize(300, 200);
+    setSize(400, 200);
 }
 
 DisintegrateEditor::~DisintegrateEditor() {}
@@ -53,13 +67,15 @@ void DisintegrateEditor::paint(juce::Graphics& g)
 
 void DisintegrateEditor::resized()
 {
-    auto area = getLocalBounds().reduced(10);
-    area.removeFromTop(30); // title
+    auto area      = getLocalBounds().reduced(10);
+    area.removeFromTop(30);
 
-    // Two knobs side by side
-    auto knobArea = area.removeFromTop(120);
-    auto amountArea  = knobArea.removeFromLeft(knobArea.getWidth() / 2);
-    auto minDropArea = knobArea;
+    auto knobArea  = area.removeFromTop(120);
+    int  knobWidth = knobArea.getWidth() / 3;
+
+    auto amountArea  = knobArea.removeFromLeft(knobWidth);
+    auto minDropArea = knobArea.removeFromLeft(knobWidth);
+    auto jitterArea  = knobArea;
 
     amountLabel.setBounds(amountArea.removeFromTop(20));
     amountKnob.setBounds(amountArea);
@@ -67,6 +83,8 @@ void DisintegrateEditor::resized()
     minDropLabel.setBounds(minDropArea.removeFromTop(20));
     minDropKnob.setBounds(minDropArea);
 
-    // Stereo link button at the bottom
-    stereoLinkButton.setBounds(area.removeFromTop(30).reduced(60, 0));
+    jitterLabel.setBounds(jitterArea.removeFromTop(20));
+    jitterKnob.setBounds(jitterArea);
+
+    stereoLinkButton.setBounds(area.removeFromTop(30).reduced(80, 0));
 }
