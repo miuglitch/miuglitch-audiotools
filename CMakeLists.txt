@@ -1,22 +1,19 @@
 cmake_minimum_required(VERSION 3.22)
+project(GlitchCore VERSION 0.1.0)
 
-# Parent project must call add_subdirectory(JUCE) before adding this directory.
-
-add_library(MiuglitchShared STATIC
-    src/ParameterSmoother.cpp
+# Collect all DSP source files
+add_library(GlitchCore STATIC
+    dsp/disintegrate/Disintegrate.cpp
 )
 
-add_library(Miuglitch::Shared ALIAS MiuglitchShared)
-
-target_include_directories(MiuglitchShared
+# Where to find the header files
+target_include_directories(GlitchCore
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_compile_features(MiuglitchShared PUBLIC cxx_std_17)
-
-target_link_libraries(MiuglitchShared
+# Require C++17
+target_compile_features(GlitchCore
     PUBLIC
-        juce::juce_audio_basics
-        juce::juce_dsp
+        cxx_std_17
 )
