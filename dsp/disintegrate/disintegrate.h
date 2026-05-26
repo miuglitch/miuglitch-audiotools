@@ -3,39 +3,33 @@
 #include <random>
 
 // Pure C++ DSP class — no JUCE dependency.
-// Applies random sample dropouts to an audio buffer.
-// Dropout probability increases with Amount (0.0 - 1.0).
-// Minimum drop duration is specified in milliseconds.
-// Supports any number of channels (stereo, surround, etc.)
-// Zero latency.
+// Two independent dropout layers:
+// Layer 1 (Amount): dense grainy texture, short dropouts at minimum drop time
+// Layer 2 (Jitter): sparse discrete glitches, 10-50ms duration, up to 10/sec
+// Supports any number of channels. Zero latency. Sample rate agnostic.
 
 class Disintegrate
 {
 public:
     Disintegrate();
 
-    // Call this when the plugin is initialized or sample rate changes.
-    // numChannels: how many audio channels (2 = stereo, 6 = 5.1, etc.)
     void prepare(double sampleRate, int numChannels);
-
-    // Process a buffer of audio in-place.
-    // channels: array of pointers, one per channel, each of length numSamples.
     void process(float** channels, int numChannels, int numSamples);
 
-    // Amount: 0.0 = no effect, 1.0 = full silence
-    void setAmount(float amount);
-
-    // Minimum dropout duration in milliseconds (e.g. 1ms to 500ms)
-    void setMinDropMs(float ms);
-
-    // If true, all channels drop together.
-    // If false, each channel is randomized independently.
+    void setAmount(float amount);        // 0.0 - 1.0
+    void setMinDropMs(float ms);         // 1ms - 500ms
+    void setJitter(float jitter);        // 0.0 - 1.0
     void setStereoLink(bool linked);
 
 private:
     void recalculateHoldSamples();
+
+    // Layer 1
     bool shouldDrop(int channel);
     float amountToProbability(float amount) const;
+
+    // Layer 2
+    bool shouldJitter(int channel);
 
     double sampleRate;
     int numChannels;
@@ -43,11 +37,17 @@ private:
     float amount;
     float minDropMs;
     int holdSamples;
+    float jitter;
 
     bool stereoLink;
 
-    std::vector<int> holdCounters;
+    // Layer 1 state
+    std::vector<int>  holdCounters;
     std::vector<bool> dropping;
+
+    // Layer 2 state
+    std::vector<int>  jitterCounters;
+    std::vector<bool> jittering;
 
     std::mt19937 rng;
     std::uniform_real_distribution<float> dist;

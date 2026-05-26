@@ -3,7 +3,7 @@ project(GlitchCore VERSION 0.1.0)
 
 # Collect all DSP source files
 add_library(GlitchCore STATIC
-    dsp/disintegrate/Disintegrate.cpp
+    dsp/disintegrate/disintegrate.cpp
 )
 
 # Where to find the header files
