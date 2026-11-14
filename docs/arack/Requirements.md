@@ -48,6 +48,15 @@ Automation (bottom):
 - **Hovering** shows a vertical line and a small box with the time position in the clip in
   milliseconds (and the value of the active parameter at that point).
 
+## Build output
+
+- Every plug-in build is installed straight to `C:\Program Files\Common Files\VST3\ARAck\`
+  (as `ARAck.vst3`), so hosts pick up the newest build on rescan. This uses JUCE's
+  `COPY_PLUGIN_AFTER_BUILD` with `VST3_COPY_DIR`. On HADES the VST3 folder already gives
+  normal users write access, so no admin rights or terminal steps are needed.
+- A copy also goes to `Bin\<Config>\` in the Dropbox ARAck folder, as before.
+- Intermediate build files stay in `C:\Builds\ARAck`.
+
 ## Undo / redo
 
 ARAck needs **full undo and redo** for everything the user does in it, built into the
