@@ -10,6 +10,13 @@ Collected from Magnus, November 2026. Add to this as decisions are made.
 - **Must work everywhere:** other ARA2 hosts (Nuendo is Magnus's main host today) and also as a
   plain, non-ARA VST3 in hosts without ARA.
 
+## Roles
+
+- **Nuendo is the host, ARAck is the ARA2 plug-in.** Testing is done with Nuendo hosting
+  ARAck (later Ableton Live 13 too).
+- The CHAIN slots host **regular VST3 plug-ins**. ARAck itself provides the ARA side; it does
+  not need to host other ARA plug-ins (such as Melodyne).
+
 ## Interface
 
 - **Left:** a list of **12 plug-in slots**. Each slot has an **enable/disable button to the left
