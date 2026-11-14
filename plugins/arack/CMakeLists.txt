@@ -39,3 +39,12 @@ target_link_libraries(ARAck
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# Final app/plug-in binaries are copied into the project folder (Dropbox) under Bin/<Config>.
+# Intermediate build files stay in the binary dir outside Dropbox.
+set(ARACK_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/Bin" CACHE PATH "Where finished binaries are copied")
+
+add_custom_command(TARGET ARAck POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${ARACK_OUTPUT_DIR}/$<CONFIG>"
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:ARAck>" "${ARACK_OUTPUT_DIR}/$<CONFIG>/"
+    VERBATIM)

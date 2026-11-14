@@ -16,4 +16,11 @@ Build output goes to `C:\Builds\ARAck`, outside Dropbox.
     cmake --preset vs2026
     cmake --build --preset debug
 
-The app ends up in `C:\Builds\ARAck\ARAck_artefacts\Debug\ARAck.exe`.
+Intermediate files stay in `C:BuildsARAck`. The finished app is copied to `Bin<Config>ARAck.exe` in this folder (Dropbox, not in git).
+
+## Folder layout
+
+- `Source/` code (in git)
+- `Bin/` built app and plug-in binaries (Dropbox only)
+- `Mockups/` UI mockups and design files
+- `Docs/` product notes and specs
