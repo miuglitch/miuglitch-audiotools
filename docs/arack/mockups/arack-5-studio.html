@@ -1,0 +1,93 @@
+<!doctype html><html><head><meta charset="utf-8"><title>ARAck mockup 5 · Studio</title>
+<link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="base.css">
+<style>
+.main{flex:1;display:flex;min-height:0}
+.left{width:380px;display:flex;flex-direction:column;background:var(--disp);color:#f4f4f2;border-right:6px solid var(--frame)}
+.left .lbl{padding:12px 16px 8px}
+.slot{display:grid;grid-template-columns:30px 24px 1fr 80px;align-items:center;gap:10px;padding:0 16px;height:44px;border-top:1px solid #1e1e1e}
+.slot .ix{font-size:12px;font-weight:600;color:#5c5b58}
+.slot .pw{border-color:#3b3b3b;background:transparent}
+.slot .pw.on{background:transparent;border-color:#ff7a45}.slot .pw.on svg{stroke:#ff7a45}
+.slot .nm{font-size:15px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot.off .nm{color:#5c5b58}
+.slot .lt{display:flex;align-items:center;gap:6px;justify-content:flex-end;font-size:12px;color:#8a8a86}
+.slot .lt i{display:block;height:6px;background:#ff7a45;border-radius:1px}
+.slot.cur{background:#1d1d1d}
+.slot.cur .nm{font-weight:600;color:#fff}
+.slot.empty .nm{color:#3f3f3d}
+.slot .tag{font-size:9.5px;font-weight:700;color:#ff7a45;letter-spacing:.06em;margin-left:6px}
+.sum{margin-top:auto;border-top:1px solid #262626;padding:14px 16px;display:flex;gap:24px}
+.view{flex:1;display:flex;flex-direction:column;min-width:0}
+.plug{flex:1;margin:14px;border:1px solid var(--tog-bd);background:var(--panel);position:relative}
+.plug .canvas{position:absolute;inset:0}
+.auto{height:360px;border-top:6px solid var(--frame);display:flex;flex-direction:column;flex-shrink:0}
+.ar{display:flex;flex:1}
+.lhs{width:380px;border-right:6px solid var(--frame);display:flex;flex-direction:column}
+.lh{flex:1;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--row-line)}
+.lh:nth-child(odd),.ln:nth-child(odd){background:var(--band-a)}
+.lh .k{width:4px;align-self:stretch;margin:8px 0}
+.lh div{flex:1}.lh b{display:block;font-size:13.5px}.lh small{font-size:11.5px;color:var(--th-sub)}
+.lh .v{font-size:20px;font-weight:300}
+.lh .m{font:600 10px var(--font);letter-spacing:.08em;padding:4px 6px;border-radius:4px;border:1px solid var(--tog-bd)}
+.lns{flex:1;display:flex;flex-direction:column;position:relative}
+.ln{flex:1;position:relative;border-bottom:1px solid var(--row-line)}
+.ghost{position:absolute;inset:0;opacity:.18;pointer-events:none}
+</style></head><body>
+<div class="app">
+ <div class="hd">
+  <div class="logo"><div class="logo-svg"></div><div class="logo-sub">ARACK</div></div>
+  <div class="iblk"><div class="lbl">Host tempo</div><div class="ro or">128.00<small>BPM</small></div></div>
+  <div class="iblk"><div class="lbl">Position</div><div class="ro">23.2.1</div></div>
+  <div class="iblk"><div class="lbl">Region</div><div class="ro" style="font-size:20px">Lead Vox · Take 3</div></div>
+  <div class="grow"></div>
+  <div class="iblk" style="flex-direction:row;align-items:center;gap:6px"><span class="btn hd-btn">Chain A</span><span class="btn hd-btn">Light</span></div>
+ </div>
+ <div class="main">
+  <div class="left">
+   <div class="lbl">Slots · enable / name / latency</div>
+   <div id="slots"></div>
+   <div class="sum">
+    <div><div class="lbl" style="padding:0 0 6px">Total latency</div><div class="ro or" id="tl"></div></div>
+    <div><div class="lbl" style="padding:0 0 6px">Saved by disabling</div><div class="ro">2.00<small>MS</small></div></div>
+   </div>
+  </div>
+  <div class="view">
+   <div class="ph k-red"><span class="t">05 · Bus Compressor</span><span class="s">VST3 · 0.00 ms</span><span class="grow"></span><span class="btn">Presets</span><span class="btn">Float</span><span class="btn on">Enabled</span></div>
+   <div class="plug" style="border-color:var(--tog-bd)"><div class="canvas" id="comp"></div></div>
+  </div>
+ </div>
+ <div class="auto">
+  <div class="ph"><span class="t">Automation</span><span class="s">4 lanes · ARA region shown behind lanes</span><span class="grow"></span><span class="btn on">Read</span><span class="btn">Write</span><span class="btn">Touch</span></div>
+  <div class="ar">
+   <div class="lhs" id="lhs"></div>
+   <div class="lns"><div class="ruler" id="ruler"></div><div class="ghost" id="ghost"></div><div id="lanes" style="flex:1;display:flex;flex-direction:column"></div></div>
+  </div>
+ </div>
+</div>
+<script src="common.js"></script>
+<script>
+header(document);
+document.getElementById('tl').innerHTML=totalLatency()+'<small>MS</small>';
+const maxL=Math.max(...SLOTS.filter(s=>s).map(s=>s.lat));
+document.getElementById('slots').innerHTML=SLOTS.map((s,i)=>{
+  const n=String(i+1).padStart(2,'0');
+  if(!s) return `<div class="slot empty"><span class="ix">${n}</span><div class="pw">${POWER}</div><div class="nm">— empty —</div><span></span></div>`;
+  return `<div class="slot ${s.on?'':'off'} ${i==4?'cur':''}"><span class="ix">${n}</span><div class="pw ${s.on?'on':''}">${POWER}</div><div class="nm">${s.n}${s.ara?'<span class="tag">ARA</span>':''}</div><span class="lt">${s.on&&s.lat?`<i style="width:${Math.max(3,s.lat/maxL*40)}px"></i>`:''}${s.on?fmtLat(s.lat):'off'}</span></div>`;
+}).join('');
+// compressor mock: transfer curve + GR meter
+(function(){const w=1000,h=480;let s=`<svg width="100%" height="100%" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">`;
+ const ox=60,oy=40,sz=400;s+=`<rect x="${ox}" y="${oy}" width="${sz}" height="${sz}" fill="none" stroke="#b3b1ac"/>`;
+ for(let i=1;i<4;i++){s+=`<line x1="${ox+sz*i/4}" y1="${oy}" x2="${ox+sz*i/4}" y2="${oy+sz}" stroke="rgba(0,0,0,.08)"/><line x1="${ox}" y1="${oy+sz*i/4}" x2="${ox+sz}" y2="${oy+sz*i/4}" stroke="rgba(0,0,0,.08)"/>`;}
+ s+=`<path d="M${ox} ${oy+sz} L${ox+sz*0.6} ${oy+sz*0.4} L${ox+sz} ${oy+sz*0.4-sz*0.4/4}" stroke="#e0322b" stroke-width="2.5" fill="none"/><circle cx="${ox+sz*0.6}" cy="${oy+sz*0.4}" r="8" fill="#ff5a1f"/>`;
+ const kn=[['THRESH','−18.0 dB'],['RATIO','4.0 : 1'],['ATTACK','10 ms'],['RELEASE','120 ms'],['MAKEUP','+3.5 dB'],['MIX','100 %']];
+ kn.forEach((k,i)=>{const cx=560+(i%3)*140,cy=110+Math.floor(i/3)*170;const a=-135+((i*47)%270);const r=40;const rad=(a-90)*Math.PI/180;
+  const sx=cx+r*Math.cos((-135-90)*Math.PI/180),sy=cy+r*Math.sin((-135-90)*Math.PI/180),ex=cx+r*Math.cos(rad),ey=cy+r*Math.sin(rad);
+  s+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="#eceae6" stroke="#3b3b3b" stroke-width="2"/><path d="M${sx} ${sy} A${r} ${r} 0 ${a+135>180?1:0} 1 ${ex} ${ey}" stroke="${i==0?'#ff5a1f':'#e0322b'}" stroke-width="4" fill="none"/><line x1="${cx}" y1="${cy}" x2="${cx+(r-10)*Math.cos(rad)}" y2="${cy+(r-10)*Math.sin(rad)}" stroke="#141414" stroke-width="2"/>`;
+  s+=`<text x="${cx}" y="${cy+66}" text-anchor="middle" font-size="12" font-weight="600" letter-spacing="1" fill="#5c5b58" font-family="IDM">${k[0]}</text><text x="${cx}" y="${cy+86}" text-anchor="middle" font-size="16" fill="${i==0?'#d8460f':'#141414'}" font-family="IDM">${k[1]}</text>`;});
+ s+=`<rect x="960" y="40" width="16" height="400" fill="#0f0f0f"/><rect x="960" y="40" width="16" height="120" fill="#e0322b"/><text x="968" y="462" text-anchor="middle" font-size="11" font-weight="600" fill="#5c5b58" font-family="IDM">GR</text>`;
+ document.getElementById('comp').innerHTML=s+'</svg>';})();
+ruler(document.getElementById('ruler'));
+document.getElementById('ghost').innerHTML=waveSVG(1200,300,'#141414');
+document.getElementById('lhs').innerHTML='<div style="height:26px;background:var(--th-bg);border-bottom:1px solid var(--row-line)"></div>'+LANES.map(l=>`<div class="lh"><span class="k" style="background:${KCOL[l.k]}"></span><div><b>${l.p.split(' · ')[1]}</b><small>${l.p.split(' · ')[0]}</small></div><span class="v num">${l.v}</span><span class="m">✕</span></div>`).join('');
+document.getElementById('lanes').innerHTML=LANES.map(l=>`<div class="ln">${laneSVG(l,1200,64)}</div>`).join('');
+</script></body></html>
