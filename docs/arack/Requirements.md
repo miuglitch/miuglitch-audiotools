@@ -28,7 +28,8 @@ Header:
 - No tempo readout. Instead, the **total clip length in milliseconds** (the ARA region ARAck
   is working on).
 - No total-latency readout. Instead, the **name of the audio file** the ARA plug-in is working on.
-- Undo and Redo buttons.
+- Undo and Redo as arrow icons, and a cog icon on the right for settings later.
+- No "active slots" count and no chain-preset button in the header.
 
 Chain list (left):
 - The panel is titled **CHAIN** (all caps).
@@ -40,6 +41,8 @@ Chain list (left):
 Automation (bottom):
 - **Tabs are parameters.** Each tab has a checkbox to show or hide that parameter; shown
   parameters are **overlaid** in one view (a Stack mode can show them as separate lanes).
+- The **selected** parameter is drawn at full opacity and is the one you edit; the other shown
+  parameters are faded.
 - The clip's **waveform is drawn underneath** the automation curves.
 - A **ruler along the bottom** shows a grid in **milliseconds**.
 - **Hovering** shows a vertical line and a small box with the time position in the clip in
