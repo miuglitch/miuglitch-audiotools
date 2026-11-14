@@ -92,3 +92,29 @@ How it will be built:
   left alone. ARA document edits made by the host stay with the host.
 - Keyboard shortcuts Ctrl+Z / Ctrl+Shift+Z (Cmd on Mac) when the ARAck window has focus, plus
   Undo and Redo buttons in the header.
+
+## Prototype status (v0.1, 15 Nov 2026)
+
+Built:
+- ARA2 VST3 plug-in. In an ARA host it plays the clip's audio through the chain; as a plain
+  VST3 it processes the track input.
+- 12 CHAIN slots: load VST3s (scan once from the slot menu), enable/disable, drag to reorder,
+  right-click to replace/remove. Disabled slots are not processed and not counted in latency;
+  the host is told the new total latency.
+- The selected plug-in's own window in the middle panel, or floating.
+- Header: clip length in ms, ARA file name, undo/redo, settings (placeholder).
+- Automation: touching a control in a hosted plug-in adds a lane; tabs with on/off checkbox;
+  lanes overlaid on the waveform; selected lane full opacity and editable (click to add,
+  drag to move, double-click to delete); ms ruler; hover time box; playback follows the clip.
+- Undo/redo for loading, removing, enabling, moving, parameter changes (one step per knob drag)
+  and every automation edit.
+
+Not yet:
+- Built-in ARAck utility processes.
+- Undo for plug-in changes that don't go through parameters (e.g. browsing presets inside the
+  plug-in's own window).
+- Sample-rate conversion: the clip plays only if its sample rate and channel count match the
+  project.
+- Inter Display font (needs .ttf files); Segoe UI is used meanwhile.
+- Plug-in scanning happens inside the host; a crashing plug-in during scan is remembered and
+  skipped next time.
