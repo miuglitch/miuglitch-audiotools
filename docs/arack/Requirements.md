@@ -22,6 +22,29 @@ Collected from Magnus, November 2026. Add to this as decisions are made.
 - **Underneath:** a wide automation area with a lane for **every parameter that's been clicked**.
 - Look and feel: see `DesignLanguage.md`. Mockups: `Mockups/arack-1…5`.
 
+### Chosen layout: mockup 4 (Compact), revised as `Mockups/arack-4b-compact`
+
+Header:
+- No tempo readout. Instead, the **total clip length in milliseconds** (the ARA region ARAck
+  is working on).
+- No total-latency readout. Instead, the **name of the audio file** the ARA plug-in is working on.
+- Undo and Redo buttons.
+
+Chain list (left):
+- The panel is titled **CHAIN** (all caps).
+- **Drag handles** (three small lines) at the far left of each slot show that slots can be
+  dragged to reorder.
+- A single **vertical divider line** between the plug-in name and the latency value.
+- A **LATENCY** button in the panel header toggles the latency column on and off.
+
+Automation (bottom):
+- **Tabs are parameters.** Each tab has a checkbox to show or hide that parameter; shown
+  parameters are **overlaid** in one view (a Stack mode can show them as separate lanes).
+- The clip's **waveform is drawn underneath** the automation curves.
+- A **ruler along the bottom** shows a grid in **milliseconds**.
+- **Hovering** shows a vertical line and a small box with the time position in the clip in
+  milliseconds (and the value of the active parameter at that point).
+
 ## Undo / redo
 
 ARAck needs **full undo and redo** for everything the user does in it, built into the
