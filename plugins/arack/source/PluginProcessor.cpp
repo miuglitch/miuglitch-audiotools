@@ -15,6 +15,16 @@ void ARAckProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     prepareToPlayForARA (sampleRate, samplesPerBlock, getMainBusNumOutputChannels(), getProcessingPrecision());
     chain.prepare (sampleRate, samplesPerBlock);
+
+    int regions = 0;
+    if (auto* r = getPlaybackRenderer<ARAckPlaybackRenderer>())
+        regions = (int) r->getPlaybackRegions().size();
+
+    arackLog ("Prepare: " + String (sampleRate) + " Hz, block " + String (samplesPerBlock)
+              + ", ARA playback renderer " + String (isPlaybackRenderer() ? "yes" : "no")
+              + ", editor renderer " + String (isEditorRenderer() ? "yes" : "no")
+              + ", editor view " + String (isEditorView() ? "yes" : "no")
+              + ", " + String (regions) + " clip(s) assigned");
 }
 
 void ARAckProcessor::releaseResources()

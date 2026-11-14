@@ -2,19 +2,39 @@
 
 #include "Session.h"
 
+// Appends a line to %APPDATA%\ARAck\ARAck.log (for diagnosing host issues).
+void arackLog (const juce::String&);
+
 // Shared, per-process catalogue of scanned plug-ins (saved in %APPDATA%\ARAck).
-struct PluginCatalog final : private juce::ChangeListener
+// Scans the VST3 folders itself, one file per timer tick on the message thread,
+// skipping ARAck's own bundle. A plug-in that crashes the scan is skipped next time.
+struct PluginCatalog final : public juce::ChangeBroadcaster,
+                             private juce::ChangeListener,
+                             private juce::Timer
 {
     PluginCatalog();
-    ~PluginCatalog() override { known.removeChangeListener (this); }
+    ~PluginCatalog() override;
     void changeListenerCallback (juce::ChangeBroadcaster*) override { save(); }
     void save();
     juce::Array<juce::PluginDescription> usableTypes() const; // everything except ARAck itself
     juce::File deadMansPedal();
 
+    void startScan();
+    bool isScanning() const { return scanning; }
+    juce::String scanStatus() const; // "Scanning 3 / 40: Name"
+
     juce::AudioPluginFormatManager formats;
     juce::KnownPluginList known;
     juce::ApplicationProperties props;
+
+private:
+    void timerCallback() override;
+
+    juce::StringArray pending;
+    juce::AudioPluginFormat* vst3 = nullptr;
+    bool scanning = false;
+    int scanTotal = 0, scanDone = 0;
+    juce::String scanCurrent;
 };
 
 // Hosts the plug-ins of the 12 CHAIN slots and applies automation.

@@ -14,10 +14,102 @@ PluginCatalog::PluginCatalog()
 
     addDefaultFormatsToManager (formats);
 
+    for (auto* f : formats.getFormats())
+        if (f->getName() == "VST3")
+            vst3 = f;
+
+    arackLog ("Catalog: " + String (formats.getNumFormats()) + " format(s), VST3 "
+              + (vst3 != nullptr ? "available" : "MISSING"));
+
     if (auto xml = props.getUserSettings()->getXmlValue ("knownPlugins"))
         known.recreateFromXml (*xml);
 
     known.addChangeListener (this);
+}
+
+PluginCatalog::~PluginCatalog()
+{
+    stopTimer();
+    known.removeChangeListener (this);
+}
+
+void PluginCatalog::startScan()
+{
+    if (scanning || vst3 == nullptr)
+        return;
+
+    PluginDirectoryScanner::applyBlacklistingsFromDeadMansPedal (known, deadMansPedal());
+
+    auto paths = vst3->getDefaultLocationsToSearch();
+    pending.clear();
+
+    for (auto& id : vst3->searchPathsForPlugins (paths, true, false))
+    {
+        // Never scan ARAck itself (it would load into itself).
+        if (id.containsIgnoreCase ("ARAck.vst3"))
+            continue;
+
+        if (! known.getBlacklistedFiles().contains (id))
+            pending.add (id);
+    }
+
+    arackLog ("Scan: searching " + paths.toString() + ", found " + String (pending.size()) + " file(s)");
+
+    scanTotal = pending.size();
+    scanDone = 0;
+    props.getUserSettings()->setValue ("scanComplete", false);
+    scanning = true;
+    sendChangeMessage();
+    startTimer (20);
+}
+
+String PluginCatalog::scanStatus() const
+{
+    if (! scanning)
+        return {};
+
+    return "Scanning " + String (scanDone + 1) + " / " + String (scanTotal) + ": "
+         + File (scanCurrent).getFileNameWithoutExtension();
+}
+
+void PluginCatalog::timerCallback()
+{
+    if (pending.isEmpty())
+    {
+        stopTimer();
+        scanning = false;
+        deadMansPedal().deleteFile();
+        props.getUserSettings()->setValue ("scanComplete", true);
+        save();
+        arackLog ("Scan: done, " + String (known.getNumTypes()) + " plug-in(s) known");
+        sendChangeMessage();
+        return;
+    }
+
+    scanCurrent = pending[0];
+    pending.remove (0);
+    sendChangeMessage();
+
+    // Remember which file is being scanned in case it takes the host down.
+    deadMansPedal().replaceWithText (scanCurrent);
+
+    OwnedArray<PluginDescription> found;
+    known.scanAndAddFile (scanCurrent, true, found, *vst3);
+    arackLog ("Scan: " + scanCurrent + " -> " + String (found.size()) + " type(s)");
+
+    deadMansPedal().replaceWithText ({});
+    ++scanDone;
+}
+
+void arackLog (const String& line)
+{
+    auto f = File::getSpecialLocation (File::userApplicationDataDirectory).getChildFile ("ARAck").getChildFile ("ARAck.log");
+    f.getParentDirectory().createDirectory();
+
+    if (f.getSize() > 2 * 1024 * 1024)
+        f.deleteFile();
+
+    f.appendText (Time::getCurrentTime().toString (true, true, true, true) + "  " + line + "\n");
 }
 
 void PluginCatalog::save()

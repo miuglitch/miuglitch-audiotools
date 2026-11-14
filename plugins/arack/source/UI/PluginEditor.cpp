@@ -358,7 +358,8 @@ ARAckEditor::ARAckEditor (ARAckProcessor& p)
     if (proc.selectedSlotUid != 0)
         pluginPanel.showSlot (proc.selectedSlotUid);
 
-    setResizable (true, true);
+    // Host-driven resizing only (no extra corner grip): ARA hosts resize the editor themselves.
+    setResizable (true, false);
     setResizeLimits (900, 600, 2400, 1600);
     setSize (1100, 720);
     setWantsKeyboardFocus (true);
@@ -393,7 +394,8 @@ void ARAckEditor::resized()
     header.setBounds (r.removeFromTop (60));
 
     const int autoH = jmax (200, (int) (r.getHeight() * 0.32f));
-    automation.setBounds (r.removeFromBottom (autoH));
+    // Gutter around the automation area so nothing overlaps its edges.
+    automation.setBounds (r.removeFromBottom (autoH).reduced (10, 0).withTrimmedBottom (10));
     r.removeFromBottom (4);
 
     chainPanel.setBounds (r.removeFromLeft (270));
@@ -441,8 +443,21 @@ void ARAckEditor::anyChange()
 void ARAckEditor::updateClipInfo()
 {
     ARAPlaybackRegion* region = nullptr;
+    String foundVia;
 
-    if (auto* r = proc.getPlaybackRenderer<ARAckPlaybackRenderer>())
+    // 1. The clip selected in the host.
+    if (auto* view = getARAEditorView())
+    {
+        const auto selected = view->getViewSelection().getEffectivePlaybackRegions<ARAPlaybackRegion>();
+        if (! selected.empty())
+        {
+            region = selected.front();
+            foundVia = "selection";
+        }
+    }
+
+    // 2. The clips this instance is rendering.
+    if (auto* r = (region == nullptr ? proc.getPlaybackRenderer<ARAckPlaybackRenderer>() : nullptr))
     {
         const auto& regions = r->getPlaybackRegions();
         const double t = proc.hostTimeSeconds.load();
@@ -453,6 +468,28 @@ void ARAckEditor::updateClipInfo()
 
         if (region == nullptr && ! regions.empty())
             region = regions.front();
+
+        if (region != nullptr)
+            foundVia = "renderer";
+    }
+
+    // 3. Any clip in the ARA document.
+    if (region == nullptr)
+        if (auto* view = getARAEditorView())
+            if (auto* doc = view->getDocumentController()->getDocument<ARADocument>())
+                for (auto* seq : doc->getRegionSequences<ARARegionSequence>())
+                    if (region == nullptr && ! seq->getPlaybackRegions<ARAPlaybackRegion>().empty())
+                    {
+                        region = seq->getPlaybackRegions<ARAPlaybackRegion>().front();
+                        foundVia = "document";
+                    }
+
+    if (region != lastRegion)
+    {
+        lastRegion = region;
+        arackLog ("Clip: ARA editor view " + String (isARAEditorView() ? "yes" : "no")
+                  + ", playback renderer " + String (proc.isPlaybackRenderer() ? "yes" : "no")
+                  + ", region " + (region != nullptr ? "from " + foundVia : String ("none")));
     }
 
     if (region != nullptr)

@@ -189,6 +189,12 @@ ChainPanel::ChainPanel (ARAckProcessor& p) : proc (p)
         refresh();
     };
     addAndMakeVisible (latencyButton);
+
+    catalog->addChangeListener (this);
+
+    // First run: find the installed VST3 plug-ins automatically.
+    if (catalog->known.getNumTypes() == 0 || ! catalog->props.getUserSettings()->getBoolValue ("scanComplete", false))
+        catalog->startScan();
 }
 
 void ChainPanel::paint (Graphics& g)
@@ -199,6 +205,13 @@ void ChainPanel::paint (Graphics& g)
     g.fillRect (h);
     g.setColour (Theme::headerText);
     Theme::drawCaps (g, "CHAIN", h.withTrimmedLeft (14), 11.5f);
+
+    if (catalog->isScanning())
+    {
+        g.setColour (Theme::orangeText);
+        g.setFont (Theme::font (11.0f));
+        g.drawText (catalog->scanStatus(), h.withTrimmedLeft (72).withTrimmedRight (90), Justification::centredLeft, true);
+    }
     g.setColour (Theme::frame);
     g.fillRect (h.removeFromBottom (3));
 }
@@ -221,17 +234,18 @@ void ChainPanel::refresh()
 
 void ChainPanel::showLoadMenu (int slotUid)
 {
-    SharedResourcePointer<PluginCatalog> catalog;
     auto types = catalog->usableTypes();
 
     PopupMenu m;
-    if (types.isEmpty())
-        m.addItem (-1, "No plug-ins scanned yet", false);
+    if (catalog->isScanning())
+        m.addItem (-1, catalog->scanStatus(), false);
+    else if (types.isEmpty())
+        m.addItem (-1, "No plug-ins found yet", false);
     else
         KnownPluginList::addToMenu (m, types, KnownPluginList::sortByManufacturer);
 
     m.addSeparator();
-    m.addItem (-2, "Scan for plug-ins...");
+    m.addItem (-2, types.isEmpty() ? "Scan for plug-ins" : "Rescan plug-ins", ! catalog->isScanning());
 
     m.showMenuAsync (PopupMenu::Options().withMousePosition(),
         [this, slotUid, types] (int result)
@@ -269,20 +283,15 @@ void ChainPanel::showSlotMenu (int slotUid)
 
 void ChainPanel::openScanner()
 {
-    SharedResourcePointer<PluginCatalog> catalog;
-
-    auto* list = new PluginListComponent (catalog->formats, catalog->known, catalog->deadMansPedal(),
-                                          catalog->props.getUserSettings(), true);
-    list->setSize (700, 500);
-
-    DialogWindow::LaunchOptions o;
-    o.content.setOwned (list);
-    o.dialogTitle = "ARAck - Plug-ins";
-    o.dialogBackgroundColour = Theme::bg;
-    o.escapeKeyTriggersCloseButton = true;
-    o.useNativeTitleBar = true;
-    o.resizable = true;
-    o.launchAsync();
+    catalog->startScan();
 }
 
-ChainPanel::~ChainPanel() = default;
+void ChainPanel::changeListenerCallback (ChangeBroadcaster*)
+{
+    repaint (getLocalBounds().removeFromTop (headerHeight));
+}
+
+ChainPanel::~ChainPanel()
+{
+    catalog->removeChangeListener (this);
+}

@@ -5,7 +5,8 @@
 
 // Left panel: CHAIN with 12 slots. Drag handle, power (enable) button, name,
 // divider, latency. Drag a handle to reorder. Click an empty slot to load.
-class ChainPanel final : public juce::Component
+class ChainPanel final : public juce::Component,
+                         private juce::ChangeListener
 {
 public:
     explicit ChainPanel (ARAckProcessor&);
@@ -27,10 +28,12 @@ private:
     void showLoadMenu (int slotUid);
     void showSlotMenu (int slotUid);
     void openScanner();
+    void changeListenerCallback (juce::ChangeBroadcaster*) override;
+
+    juce::SharedResourcePointer<PluginCatalog> catalog;
 
     ARAckProcessor& proc;
     juce::TextButton latencyButton { "Latency" };
     juce::OwnedArray<SlotRow> rows;
     bool showLatency = true;
-    std::unique_ptr<juce::DialogWindow> scanWindow;
 };

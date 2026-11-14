@@ -95,4 +95,5 @@ private:
     ChainPanel chainPanel;
     PluginPanel pluginPanel;
     AutomationPanel automation;
+    juce::ARAPlaybackRegion* lastRegion = nullptr;
 };
