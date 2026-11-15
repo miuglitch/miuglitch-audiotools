@@ -176,6 +176,222 @@ private:
 };
 
 //==============================================================================
+class ChainPanel::SearchBox final : public TextEditor
+{
+public:
+    explicit SearchBox (ChainPanel& o) : owner (o)
+    {
+        setFont (Theme::font (13.5f));
+        setIndents (8, 0);
+        setJustification (Justification::centredLeft);
+        setColour (TextEditor::backgroundColourId, Theme::displayCtrl);
+        setColour (TextEditor::textColourId, Theme::fg);
+        setColour (TextEditor::outlineColourId, Colours::transparentBlack);
+        setColour (TextEditor::focusedOutlineColourId, Theme::orange);
+        setColour (TextEditor::highlightColourId, Theme::orange.withAlpha (0.4f));
+        setColour (CaretComponent::caretColourId, Theme::orange);
+        setSelectAllWhenFocused (true);
+    }
+
+    bool keyPressed (const KeyPress& k) override
+    {
+        if (k == KeyPress::upKey)     { owner.moveResult (-1); return true; }
+        if (k == KeyPress::downKey)   { owner.moveResult (1);  return true; }
+        if (k == KeyPress::returnKey) { owner.addSelectedResult(); return true; }
+        if (k == KeyPress::escapeKey) { owner.closeSearch(); return true; }
+        return TextEditor::keyPressed (k);
+    }
+
+    void focusLost (FocusChangeType t) override;
+
+private:
+    ChainPanel& owner;
+};
+
+class ChainPanel::ResultsList final : public Component
+{
+public:
+    explicit ResultsList (ChainPanel& o) : owner (o)
+    {
+        setWantsKeyboardFocus (false);
+        setMouseClickGrabsKeyboardFocus (false);
+    }
+
+    static constexpr int rowH = 30;
+
+    void paint (Graphics& g) override
+    {
+        g.fillAll (Colour (0xff161616));
+
+        if (message.isNotEmpty())
+        {
+            g.setColour (Theme::headerSub);
+            g.setFont (Theme::font (13.0f));
+            g.drawText (message, getLocalBounds().reduced (12, 0), Justification::centredLeft);
+        }
+
+        for (int i = 0; i < items.size(); ++i)
+        {
+            auto r = Rectangle<int> (1, 1 + i * rowH, getWidth() - 2, rowH);
+            if (i == selected)
+            {
+                g.setColour (Theme::warm);
+                g.fillRect (r);
+                g.setColour (Theme::orange);
+                g.fillRect (r.removeFromLeft (3));
+            }
+
+            auto t = r.reduced (10, 2);
+            g.setColour (Theme::fg);
+            g.setFont (Theme::font (13.5f, i == selected));
+            g.drawText (items[i].name, t.removeFromTop (16), Justification::centredLeft, true);
+            g.setColour (Theme::headerSub);
+            g.setFont (Theme::font (10.5f));
+            g.drawText (items[i].manufacturerName, t, Justification::centredLeft, true);
+        }
+
+        g.setColour (Theme::orange);
+        g.drawRect (getLocalBounds(), 1);
+    }
+
+    void mouseMove (const MouseEvent& e) override
+    {
+        const int i = e.y / rowH;
+        if (isPositiveAndBelow (i, items.size()) && i != selected) { selected = i; repaint(); }
+    }
+
+    void mouseDown (const MouseEvent& e) override
+    {
+        const int i = e.y / rowH;
+        if (isPositiveAndBelow (i, items.size()))
+        {
+            selected = i;
+            owner.addSelectedResult();
+        }
+    }
+
+    Array<PluginDescription> items;
+    int selected = 0;
+    String message;
+
+private:
+    ChainPanel& owner;
+};
+
+void ChainPanel::SearchBox::focusLost (FocusChangeType t)
+{
+    TextEditor::focusLost (t);
+    if (owner.results != nullptr)
+        owner.results->setVisible (false);
+}
+
+void ChainPanel::updatePlaceholder()
+{
+    search->setTextToShowWhenEmpty (catalog->isScanning() ? catalog->scanStatus() : String ("Search plug-ins    Ctrl+F"),
+                                    catalog->isScanning() ? Theme::orangeText : Theme::mutedText);
+    search->repaint();
+}
+
+void ChainPanel::updateResults()
+{
+    const auto q = search->getText().trim();
+    results->items.clearQuick();
+    results->selected = 0;
+    results->message = {};
+
+    if (q.isEmpty())
+    {
+        results->setVisible (false);
+        return;
+    }
+
+    Array<PluginDescription> starts, contains;
+
+    for (auto& t : catalog->usableTypes())
+    {
+        if (t.name.startsWithIgnoreCase (q))
+            starts.add (t);
+        else if (t.name.containsIgnoreCase (q) || t.manufacturerName.containsIgnoreCase (q))
+            contains.add (t);
+    }
+
+    auto byName = [] (const PluginDescription& a, const PluginDescription& b) { return a.name.compareIgnoreCase (b.name) < 0; };
+    std::sort (starts.begin(), starts.end(), byName);
+    std::sort (contains.begin(), contains.end(), byName);
+    results->items.addArray (starts);
+    results->items.addArray (contains);
+
+    if (results->items.isEmpty())
+        results->message = catalog->isScanning() ? catalog->scanStatus() : String ("No matching plug-ins");
+
+    const int maxRows = jmax (1, (getHeight() - headerHeight) / ResultsList::rowH);
+    results->items.removeRange (maxRows, results->items.size());
+    const int rowsShown = jlimit (1, maxRows, results->items.size());
+    results->setBounds (0, headerHeight, getWidth(), rowsShown * ResultsList::rowH + 2);
+    results->setVisible (true);
+    results->toFront (false);
+    results->repaint();
+}
+
+void ChainPanel::moveResult (int delta)
+{
+    if (! results->isVisible() || results->items.isEmpty())
+        return;
+
+    results->selected = jlimit (0, results->items.size() - 1, results->selected + delta);
+    results->repaint();
+}
+
+int ChainPanel::targetSlotForAdd() const
+{
+    // The selected slot if it's empty, otherwise the first empty slot.
+    auto sel = proc.session.slotByUid (proc.selectedSlotUid);
+    if (sel.isValid() && sel[IDs::desc].toString().isEmpty())
+        return proc.selectedSlotUid;
+
+    for (auto s : proc.session.slots())
+        if (s[IDs::desc].toString().isEmpty())
+            return s[IDs::uid];
+
+    return 0;
+}
+
+void ChainPanel::addSelectedResult()
+{
+    if (! results->isVisible() || ! isPositiveAndBelow (results->selected, results->items.size()))
+        return;
+
+    const int slotUid = targetSlotForAdd();
+    if (slotUid == 0)
+    {
+        results->message = "All 12 slots are full";
+        results->items.clearQuick();
+        results->setSize (getWidth(), ResultsList::rowH + 2);
+        results->repaint();
+        return;
+    }
+
+    proc.chain.loadPlugin (slotUid, results->items.getReference (results->selected));
+    closeSearch();
+
+    if (onSelect)
+        onSelect (slotUid);
+}
+
+void ChainPanel::closeSearch()
+{
+    search->clear();
+    results->setVisible (false);
+    search->giveAwayKeyboardFocus();
+}
+
+void ChainPanel::focusSearch()
+{
+    search->grabKeyboardFocus();
+    search->selectAll();
+}
+
+//==============================================================================
 ChainPanel::ChainPanel (ARAckProcessor& p) : proc (p)
 {
     for (int i = 0; i < Session::numSlots; ++i)
@@ -190,6 +406,14 @@ ChainPanel::ChainPanel (ARAckProcessor& p) : proc (p)
     };
     addAndMakeVisible (latencyButton);
 
+    search = std::make_unique<SearchBox> (*this);
+    search->onTextChange = [this] { updateResults(); };
+    addAndMakeVisible (*search);
+
+    results = std::make_unique<ResultsList> (*this);
+    addChildComponent (*results);
+    updatePlaceholder();
+
     catalog->addChangeListener (this);
 
     // First run: find the installed VST3 plug-ins automatically.
@@ -203,15 +427,6 @@ void ChainPanel::paint (Graphics& g)
     auto h = getLocalBounds().removeFromTop (headerHeight);
     g.setColour (Theme::bg);
     g.fillRect (h);
-    g.setColour (Theme::headerText);
-    Theme::drawCaps (g, "CHAIN", h.withTrimmedLeft (14), 11.5f);
-
-    if (catalog->isScanning())
-    {
-        g.setColour (Theme::orangeText);
-        g.setFont (Theme::font (11.0f));
-        g.drawText (catalog->scanStatus(), h.withTrimmedLeft (72).withTrimmedRight (90), Justification::centredLeft, true);
-    }
     g.setColour (Theme::frame);
     g.fillRect (h.removeFromBottom (3));
 }
@@ -221,6 +436,7 @@ void ChainPanel::resized()
     auto r = getLocalBounds();
     auto h = r.removeFromTop (headerHeight);
     latencyButton.setBounds (h.removeFromRight (82).reduced (8, 7).withTrimmedBottom (2));
+    search->setBounds (h.withTrimmedLeft (8).reduced (0, 6).withTrimmedBottom (2));
 
     for (auto* row : rows)
         row->setBounds (r.removeFromTop (rowHeight));
@@ -288,10 +504,25 @@ void ChainPanel::openScanner()
 
 void ChainPanel::changeListenerCallback (ChangeBroadcaster*)
 {
-    repaint (getLocalBounds().removeFromTop (headerHeight));
+    updatePlaceholder();
+    if (results->isVisible())
+        updateResults();
 }
 
 ChainPanel::~ChainPanel()
 {
     catalog->removeChangeListener (this);
+}
+
+void ChainPanel::runSelfTest (const String& query)
+{
+    focusSearch();
+    search->setText (query, true);
+    arackLog ("Self-test: search '" + query + "' -> " + String (results->items.size()) + " result(s)");
+
+    Timer::callAfterDelay (1500, [safe = Component::SafePointer<ChainPanel> (this)]
+    {
+        if (safe != nullptr)
+            safe->addSelectedResult();
+    });
 }

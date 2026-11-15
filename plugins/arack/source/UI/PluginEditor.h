@@ -35,7 +35,8 @@ private:
 };
 
 // Middle panel: shows the selected slot's own plug-in interface.
-class PluginPanel final : public juce::Component
+class PluginPanel final : public juce::Component,
+                          private juce::ComponentListener
 {
 public:
     explicit PluginPanel (ARAckProcessor&);
@@ -45,6 +46,14 @@ public:
     void instanceGoing (int slotUid);
     void refresh();
 
+    // Size of the docked plug-in window (0,0 if none), and a callback when it changes.
+    juce::Point<int> dockedEditorSize() const;
+    std::function<void()> onContentSizeChanged;
+    static constexpr int padding = 11;
+
+private:
+    juce::Point<int> lastReportedSize;
+
     void paint (juce::Graphics&) override;
     void resized() override;
 
@@ -52,6 +61,7 @@ private:
     class FloatWindow;
     void closeEditor();
     void setFloating (bool);
+    void componentMovedOrResized (juce::Component&, bool, bool wasResized) override;
 
     ARAckProcessor& proc;
     int slotUid = 0;
@@ -74,6 +84,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
     bool keyPressed (const juce::KeyPress&) override;
+    void mouseDown (const juce::MouseEvent&) override;
 
     juce::AudioProcessorEditorARAExtension* getARAClientExtensions() override { return this; }
 
@@ -82,6 +93,10 @@ private:
     void updateClipInfo();
     void select (int slotUid);
     void anyChange();
+    void fitToPlugin();
+
+    static constexpr int defaultWidth = 1100, defaultHeight = 770;
+    static constexpr int headerHeight = 60, chainWidth = 270, automationHeight = 240;
 
     void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override { anyChange(); }
     void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&) override { anyChange(); }

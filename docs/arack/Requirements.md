@@ -38,20 +38,39 @@ Header:
 - Undo and Redo as arrow icons, and a cog icon on the right for settings later.
 - No "active slots" count and no chain-preset button in the header.
 
+Time format (clip length in the header, the hover box and the ruler):
+- Under 10 seconds: milliseconds, e.g. `9876.54 MS`.
+- From 10 seconds: seconds:milliseconds, e.g. `45:120 S:MS`.
+- From 1 minute: minutes:seconds:milliseconds, e.g. `02:45:644 M:S:MS`.
+- Minutes and seconds always have two digits, milliseconds three. The hover box and ruler use
+  the same format as the clip length, so one clip always reads the same way.
+
+Window size:
+- ARAck **resizes itself to fit the selected plug-in's window**, so a large plug-in (e.g. Pro-Q)
+  never spills over the automation area. It shrinks back to the default size for smaller ones.
+
 Chain list (left):
-- The panel is titled **CHAIN** (all caps).
+- Instead of a "CHAIN" title, the top of the panel is a **plug-in search bar** with live
+  results as you type. Up/Down arrows move through the results, Enter adds the highlighted
+  plug-in (to the selected slot if it's empty, otherwise the first empty slot), Escape closes.
+  **Ctrl+F** jumps to the search bar (after clicking anywhere in ARAck).
 - **Drag handles** (three small lines) at the far left of each slot show that slots can be
   dragged to reorder.
 - A single **vertical divider line** between the plug-in name and the latency value.
 - A **LATENCY** button in the panel header toggles the latency column on and off.
 
 Automation (bottom):
+- An **ADD AUTO** button on the left toggles record mode. While it's on, every plug-in
+  parameter you touch gets an automation tab. This is the **only** way to add parameters.
+- The view always **fits the whole clip** to the window. Zoom Ableton-style by dragging in the
+  strip at the top of the waveform (down = zoom in, up = zoom out, sideways = scroll), or with
+  **Ctrl+mouse wheel**. Double-click the strip to fit again; the mouse wheel scrolls when zoomed.
 - **Tabs are parameters.** Each tab has a checkbox to show or hide that parameter; shown
   parameters are **overlaid** in one view (a Stack mode can show them as separate lanes).
 - The **selected** parameter is drawn at full opacity and is the one you edit; the other shown
   parameters are faded.
 - The clip's **waveform is drawn underneath** the automation curves.
-- A **ruler along the bottom** shows a grid in **milliseconds**.
+- A **ruler along the bottom** shows the time grid (format above).
 - **Hovering** shows a vertical line and a small box with the time position in the clip in
   milliseconds (and the value of the active parameter at that point).
 

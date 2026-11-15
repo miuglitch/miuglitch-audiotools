@@ -596,8 +596,8 @@ void ChainEngine::gestureChanged (int slotUid, int paramIndex, bool starting, fl
         gestureStartValues[key] = value;
         session.undo.beginNewTransaction ("Change " + p->getName (64));
 
-        // Touching a parameter gives it an automation lane (first touch only).
-        if (! session.findLane (slotUid, paramIndex).isValid())
+        // In ADD AUTO mode, touching a parameter gives it an automation lane (first touch only).
+        if (recordAutomation.load() && ! session.findLane (slotUid, paramIndex).isValid())
         {
             ValueTree lane { IDs::LANE };
             lane.setProperty (IDs::uid, session.newLaneUid(), nullptr);

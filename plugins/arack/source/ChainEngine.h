@@ -58,6 +58,9 @@ public:
     juce::AudioPluginInstance* getInstance (int slotUid) const;
     bool isLoading (int slotUid) const { return loading.count (slotUid) > 0; }
     juce::String getLoadError (int slotUid) const;
+
+    // ADD AUTO (record mode): when on, touching a hosted parameter gives it a lane.
+    std::atomic<bool> recordAutomation { false };
     int getTotalLatencySamples() const { return totalLatency; }
     double getSampleRate() const { return sampleRate; }
 

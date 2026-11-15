@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "BinaryData.h"
+#include "TimeFormat.h"
 
 using namespace juce;
 
@@ -104,14 +105,15 @@ void HeaderBar::paint (Graphics& g)
 
     block (220, "Clip length", [&] (Rectangle<int> b)
     {
-        const String num = clipMs >= 0.0 ? String (clipMs, 2) : String ("0.00");
+        const auto ct = ClipTime::format (clipMs >= 0.0 ? clipMs : 0.0);
+        const String num = ct.value;
         auto f = Theme::light (24.0f);
         g.setFont (f);
         g.setColour (Theme::orange);
         g.drawText (num, b, Justification::centredLeft);
         g.setColour (Theme::displayLabel);
         g.setFont (Theme::caps (11.0f));
-        g.drawText ("MS", b.withTrimmedLeft (GlyphArrangement::getStringWidthInt (f, num) + 4).withTrimmedTop (8), Justification::centredLeft);
+        g.drawText (ct.unit, b.withTrimmedLeft (GlyphArrangement::getStringWidthInt (f, num) + 4).withTrimmedTop (8), Justification::centredLeft);
     });
 
     block (r.getWidth() - 150, "ARA file", [&] (Rectangle<int> b)
@@ -174,6 +176,9 @@ PluginPanel::~PluginPanel()
 
 void PluginPanel::closeEditor()
 {
+    if (editor != nullptr)
+        editor->removeComponentListener (this);
+
     viewport.setViewedComponent (nullptr, false);
 
     if (floatWindow != nullptr)
@@ -203,6 +208,8 @@ void PluginPanel::showSlot (int uid)
 
         if (editor == nullptr)
             editor = std::make_unique<GenericAudioProcessorEditor> (*inst);
+
+        editor->addComponentListener (this);
 
         if (wasFloating)
             setFloating (true);
@@ -238,8 +245,23 @@ void PluginPanel::setFloating (bool shouldFloat)
     }
 
     floatButton.setToggleState (floatWindow != nullptr, dontSendNotification);
-    resized();
-    repaint();
+    refresh();
+}
+
+Point<int> PluginPanel::dockedEditorSize() const
+{
+    if (editor != nullptr && floatWindow == nullptr)
+        return { editor->getWidth(), editor->getHeight() };
+    return {};
+}
+
+void PluginPanel::componentMovedOrResized (Component&, bool, bool wasResized)
+{
+    if (wasResized)
+    {
+        resized();
+        refresh();
+    }
 }
 
 void PluginPanel::instanceGoing (int uid)
@@ -250,6 +272,16 @@ void PluginPanel::instanceGoing (int uid)
 
 void PluginPanel::refresh()
 {
+    if (dockedEditorSize() != lastReportedSize)
+    {
+        lastReportedSize = dockedEditorSize();
+        if (onContentSizeChanged)
+            MessageManager::callAsync ([safe = Component::SafePointer<PluginPanel> (this)]
+            {
+                if (safe != nullptr && safe->onContentSizeChanged) safe->onContentSizeChanged();
+            });
+    }
+
     auto slot = proc.session.slotByUid (slotUid);
     const bool hasPlugin = slot.isValid() && slot[IDs::desc].toString().isNotEmpty();
 
@@ -360,13 +392,25 @@ ARAckEditor::ARAckEditor (ARAckProcessor& p)
 
     // Host-driven resizing only (no extra corner grip): ARA hosts resize the editor themselves.
     setResizable (true, false);
-    setResizeLimits (900, 600, 2400, 1600);
-    setSize (1100, 720);
+    setResizeLimits (900, 600, 4000, 3000);
+    setSize (defaultWidth, defaultHeight);
+    pluginPanel.onContentSizeChanged = [this] { fitToPlugin(); };
     setWantsKeyboardFocus (true);
+    addMouseListener (this, true); // any click inside ARAck gives it keyboard focus (for Ctrl+F, Ctrl+Z)
 
     pluginPanel.refresh();
     updateClipInfo();
     startTimerHz (30);
+
+    // Developer self-test (standalone only): ARACK_SELFTEST=<search text> types it into
+    // the search box and adds the first result.
+    const auto selfTest = SystemStats::getEnvironmentVariable ("ARACK_SELFTEST", {});
+    if (selfTest.isNotEmpty() && proc.wrapperType == AudioProcessor::wrapperType_Standalone)
+        Timer::callAfterDelay (1500, [safe = Component::SafePointer<ARAckEditor> (this), selfTest]
+        {
+            if (safe != nullptr)
+                safe->chainPanel.runSelfTest (selfTest);
+        });
 }
 
 ARAckEditor::~ARAckEditor()
@@ -388,19 +432,41 @@ void ARAckEditor::paint (Graphics& g)
     g.fillRect (0, automation.getY() - 4, getWidth(), 4);
 }
 
+void ARAckEditor::fitToPlugin()
+{
+    // Grow (or shrink back) so the docked plug-in window fits without overlapping
+    // the automation area. Native plug-in windows can't be clipped, so this matters.
+    const auto need = pluginPanel.dockedEditorSize();
+    const int pad = 2 * PluginPanel::padding + 2;
+    const int w = jmax (defaultWidth, chainWidth + 4 + need.x + pad);
+    const int h = jmax (defaultHeight, headerHeight + ChainPanel::headerHeight + need.y + pad + 4 + automationHeight);
+
+    if (w != getWidth() || h != getHeight())
+    {
+        arackLog ("Fit to plug-in " + String (need.x) + "x" + String (need.y) + " -> " + String (w) + "x" + String (h));
+        setSize (w, h);
+    }
+}
+
 void ARAckEditor::resized()
 {
     auto r = getLocalBounds();
-    header.setBounds (r.removeFromTop (60));
+    header.setBounds (r.removeFromTop (headerHeight));
 
-    const int autoH = jmax (200, (int) (r.getHeight() * 0.32f));
+    const int autoH = automationHeight;
     // Gutter around the automation area so nothing overlaps its edges.
     automation.setBounds (r.removeFromBottom (autoH).reduced (10, 0).withTrimmedBottom (10));
     r.removeFromBottom (4);
 
-    chainPanel.setBounds (r.removeFromLeft (270));
+    chainPanel.setBounds (r.removeFromLeft (chainWidth));
     r.removeFromLeft (4);
     pluginPanel.setBounds (r);
+}
+
+void ARAckEditor::mouseDown (const MouseEvent&)
+{
+    if (! hasKeyboardFocus (true))
+        grabKeyboardFocus();
 }
 
 bool ARAckEditor::keyPressed (const KeyPress& k)
@@ -410,6 +476,12 @@ bool ARAckEditor::keyPressed (const KeyPress& k)
     if (mods.isCommandDown() && k.getKeyCode() == 'Z')
     {
         mods.isShiftDown() ? proc.session.undo.redo() : proc.session.undo.undo();
+        return true;
+    }
+
+    if (mods.isCommandDown() && k.getKeyCode() == 'F')
+    {
+        chainPanel.focusSearch();
         return true;
     }
 

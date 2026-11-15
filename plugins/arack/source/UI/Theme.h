@@ -87,6 +87,13 @@ public:
     {
         auto r = b.getLocalBounds().toFloat().reduced (0.5f);
         const bool on = b.getToggleState();
+
+        if (on && (bool) b.getProperties()["accent"])
+        {
+            g.setColour (over ? Theme::orangeText : Theme::orange);
+            g.fillRoundedRectangle (r, 5.0f);
+            return;
+        }
         g.setColour (over || down ? Theme::hover : juce::Colours::transparentBlack);
         g.fillRoundedRectangle (r, 5.0f);
         g.setColour (on ? juce::Colour (0xff8c8c88) : Theme::btnBorder);
