@@ -46,7 +46,7 @@ class ChainEngine final : private juce::ValueTree::Listener,
                           private juce::AudioProcessorListener
 {
 public:
-    ChainEngine (Session&, juce::AudioProcessor& owner);
+    explicit ChainEngine (Session&);
     ~ChainEngine() override;
 
     void prepare (double sampleRate, int blockSize);
@@ -109,7 +109,6 @@ private:
     void gestureChanged (int slotUid, int paramIndex, bool starting, float value);
 
     Session& session;
-    juce::AudioProcessor& owner;
     juce::SharedResourcePointer<PluginCatalog> catalog;
 
     struct Hosted

@@ -7,14 +7,29 @@ ARAckProcessor::ARAckProcessor()
     : AudioProcessor (BusesProperties().withInput  ("Input",  AudioChannelSet::stereo(), true)
                                        .withOutput ("Output", AudioChannelSet::stereo(), true))
 {
+    startTimer (250);
 }
 
-ARAckProcessor::~ARAckProcessor() = default;
+ARAckProcessor::~ARAckProcessor()
+{
+    stopTimer();
+}
+
+void ARAckProcessor::timerCallback()
+{
+    int latency = localModel.chain.getTotalLatencySamples();
+
+    if (auto* r = getPlaybackRenderer<ARAckPlaybackRenderer>())
+        latency = r->getChainLatencySamples();
+
+    if (latency != getLatencySamples())
+        setLatencySamples (latency);
+}
 
 void ARAckProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     prepareToPlayForARA (sampleRate, samplesPerBlock, getMainBusNumOutputChannels(), getProcessingPrecision());
-    chain.prepare (sampleRate, samplesPerBlock);
+    localModel.chain.prepare (sampleRate, samplesPerBlock);
 
     int regions = 0;
     if (auto* r = getPlaybackRenderer<ARAckPlaybackRenderer>())
@@ -30,7 +45,7 @@ void ARAckProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 void ARAckProcessor::releaseResources()
 {
     releaseResourcesForARA();
-    chain.release();
+    localModel.chain.release();
 }
 
 bool ARAckProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -62,28 +77,23 @@ void ARAckProcessor::processBlock (AudioBuffer<float>& buffer, MidiBuffer&)
     if (pos.hasValue())
         hostTimeSeconds.store (pos->getTimeInSeconds().orFallback (0.0));
 
-    double posMs = -1.0;
-
     if (isPlaybackRenderer())
     {
-        // ARA mode: the clip audio comes from the host's audio source.
+        // ARA mode: the renderer reads each clip and runs it through that clip's CHAIN.
         processBlockForARA (buffer, isRealtime(), ph);
-
-        if (auto* r = getPlaybackRenderer<ARAckPlaybackRenderer>())
-        {
-            const auto s = r->clipPositionSamples.load();
-            if (s != std::numeric_limits<int64>::min() && getSampleRate() > 0)
-                posMs = (double) s / getSampleRate() * 1000.0;
-        }
+        return;
     }
-    else if (playing)
+
+    if (isEditorRenderer() || isEditorView())
     {
-        // Plain VST3 mode: process the track input, automation follows host time.
-        posMs = hostTimeSeconds.load() * 1000.0;
+        buffer.clear(); // ARA helper copies of ARAck don't make sound
+        return;
     }
 
-    clipPositionMs.store (playing ? posMs : -1.0);
-    chain.process (buffer, playing ? posMs : -1.0);
+    // Plain VST3: process the track input; automation follows host time.
+    const double posMs = playing ? hostTimeSeconds.load() * 1000.0 : -1.0;
+    localModel.playPositionMs.store (posMs);
+    localModel.chain.process (buffer, posMs);
 }
 
 void ARAckProcessor::getStateInformation (MemoryBlock& dest)
@@ -91,14 +101,14 @@ void ARAckProcessor::getStateInformation (MemoryBlock& dest)
     if (! MessageManager::existsAndIsCurrentThread())
     {
         // Hosts normally ask on the message thread; if not, save the tree as it is.
-        if (auto xml = session.root.createXml())
+        if (auto xml = localModel.session.root.createXml())
             copyXmlToBinary (*xml, dest);
         return;
     }
 
-    chain.storePluginStates();
+    localModel.chain.storePluginStates();
 
-    if (auto xml = session.root.createXml())
+    if (auto xml = localModel.session.root.createXml())
         copyXmlToBinary (*xml, dest);
 }
 
@@ -109,12 +119,12 @@ void ARAckProcessor::setStateInformation (const void* data, int size)
         auto tree = ValueTree::fromXml (*xml);
 
         if (MessageManager::existsAndIsCurrentThread())
-            session.replaceWith (tree);
+            localModel.session.replaceWith (tree);
         else
             MessageManager::callAsync ([safe = WeakReference<ARAckProcessor> (this), tree]
             {
                 if (safe != nullptr)
-                    safe->session.replaceWith (tree);
+                    safe->localModel.session.replaceWith (tree);
             });
     }
 }

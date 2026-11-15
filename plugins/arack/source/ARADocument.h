@@ -2,11 +2,29 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_formats/juce_audio_formats.h>
+#include "ClipModel.h"
 
-// ARA side of ARAck: the document controller and the playback renderer.
-// The renderer only produces the clip audio from the host's audio source. The
-// processor then runs that audio through the CHAIN.
+// ARA side of ARAck.
+// Hosts like Nuendo run several copies of ARAck for one document: one plays the audio
+// (playback renderer), another shows the window (editor view). So each clip's CHAIN,
+// automation and undo history live on the ARA audio modification (ARAckAudioModification),
+// which every copy can reach. The playback renderer reads the clip audio and runs it
+// through that clip's chain.
 // Based on the JUCE ARAPluginDemo (ISC licence).
+
+class ARAckAudioModification final : public juce::ARAAudioModification
+{
+public:
+    ARAckAudioModification (juce::ARAAudioSource* source, ARA::ARAAudioModificationHostRef hostRef,
+                            const ARAckAudioModification* optionalModificationToClone)
+        : juce::ARAAudioModification (source, hostRef, optionalModificationToClone)
+    {
+        if (optionalModificationToClone != nullptr)
+            model.session.replaceWith (optionalModificationToClone->model.session.root.createCopy());
+    }
+
+    ClipModel model;
+};
 
 class SharedTimeSliceThread final : public juce::TimeSliceThread
 {
@@ -39,9 +57,8 @@ public:
 
     using juce::ARAPlaybackRenderer::processBlock;
 
-    // Position of the current block inside the clip (playback region), in samples.
-    // INT64_MIN when the playhead is outside every region.
-    std::atomic<juce::int64> clipPositionSamples { std::numeric_limits<juce::int64>::min() };
+    // Highest chain latency among the clips this renderer plays (message thread).
+    int getChainLatencySamples() const;
 
 private:
     class Reader
@@ -78,21 +95,21 @@ protected:
     void willBeginEditing (juce::ARADocument*) override { processLock.enterWrite(); }
     void didEndEditing (juce::ARADocument*) override    { processLock.exitWrite(); }
 
+    juce::ARAAudioModification* doCreateAudioModification (juce::ARAAudioSource* audioSource,
+                                                           ARA::ARAAudioModificationHostRef hostRef,
+                                                           const juce::ARAAudioModification* toClone) noexcept override
+    {
+        return new ARAckAudioModification (audioSource, hostRef, static_cast<const ARAckAudioModification*> (toClone));
+    }
+
     juce::ARAPlaybackRenderer* doCreatePlaybackRenderer() noexcept override
     {
         return new ARAckPlaybackRenderer (getDocumentController(), *this);
     }
 
-    bool doRestoreObjectsFromStream (juce::ARAInputStream& input, const juce::ARARestoreObjectsFilter*) noexcept override
-    {
-        input.readInt64(); // format version; nothing stored per ARA object yet
-        return ! input.failed();
-    }
-
-    bool doStoreObjectsToStream (juce::ARAOutputStream& output, const juce::ARAStoreObjectsFilter*) noexcept override
-    {
-        return output.writeInt64 (1);
-    }
+    // Each clip's chain (with plug-in settings) and automation are saved in the host project.
+    bool doRestoreObjectsFromStream (juce::ARAInputStream&, const juce::ARARestoreObjectsFilter*) noexcept override;
+    bool doStoreObjectsToStream (juce::ARAOutputStream&, const juce::ARAStoreObjectsFilter*) noexcept override;
 
 private:
     juce::ScopedTryReadLock getProcessingLock() override { return juce::ScopedTryReadLock { processLock }; }

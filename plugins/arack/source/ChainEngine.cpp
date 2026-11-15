@@ -197,7 +197,7 @@ struct ChainEngine::ParamAction final : public UndoableAction
 };
 
 //==============================================================================
-ChainEngine::ChainEngine (Session& s, AudioProcessor& o) : session (s), owner (o)
+ChainEngine::ChainEngine (Session& s) : session (s)
 {
     session.root.addListener (this);
     snapshot = std::make_unique<Snapshot>();
@@ -224,6 +224,9 @@ ChainEngine::~ChainEngine()
 
 void ChainEngine::prepare (double sr, int bs)
 {
+    if (sr == sampleRate && bs <= blockSize)
+        return; // already prepared (several ARA renderers may share this chain)
+
     sampleRate = sr;
     blockSize = bs;
     scratch.setSize (32, bs, false, true, false);
@@ -486,8 +489,7 @@ void ChainEngine::updateLatency()
 
     if (sum != totalLatency)
     {
-        totalLatency = sum;
-        owner.setLatencySamples (sum);
+        totalLatency = sum; // the processor polls this and reports it to the host
     }
 }
 

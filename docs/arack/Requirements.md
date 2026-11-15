@@ -48,23 +48,38 @@ Time format (clip length in the header, the hover box and the ruler):
 Window size:
 - ARAck **resizes itself to fit the selected plug-in's window**, so a large plug-in (e.g. Pro-Q)
   never spills over the automation area. It shrinks back to the default size for smaller ones.
+- The size is **locked** to that: the host can't stretch or shrink ARAck. Minimum is the default
+  size (1100 x 770) so small plug-ins still get a usable window.
+- The plug-in panel has no on/off button (that's the power button in the slot) and a classic
+  **pop-out arrow** icon instead of "Float".
+- Plug-in windows stay open per slot once shown, so switching between plug-ins doesn't flicker.
 
 Chain list (left):
 - Instead of a "CHAIN" title, the top of the panel is a **plug-in search bar** with live
   results as you type. Up/Down arrows move through the results, Enter adds the highlighted
   plug-in (to the selected slot if it's empty, otherwise the first empty slot), Escape closes.
   **Ctrl+F** jumps to the search bar (after clicking anywhere in ARAck).
+- A **red X** in each slot row removes that plug-in (undoable).
 - **Drag handles** (three small lines) at the far left of each slot show that slots can be
   dragged to reorder.
 - A single **vertical divider line** between the plug-in name and the latency value.
 - A **LATENCY** button in the panel header toggles the latency column on and off.
 
 Automation (bottom):
+- **ADD AUTO** is a vertical button along the left edge of the automation area (text rotated
+  90 degrees). No hint text; hovering for 1 second shows "Toggle to add parameter automation".
 - An **ADD AUTO** button on the left toggles record mode. While it's on, every plug-in
   parameter you touch gets an automation tab. This is the **only** way to add parameters.
 - The view always **fits the whole clip** to the window. Zoom Ableton-style by dragging in the
   strip at the top of the waveform (down = zoom in, up = zoom out, sideways = scroll), or with
   **Ctrl+mouse wheel**. Double-click the strip to fit again; the mouse wheel scrolls when zoomed.
+- **Middle mouse drag** pans sideways smoothly.
+- **Drag on empty space** draws a selection box; drag any selected point to move them all;
+  Delete removes them; Shift adds to the selection.
+- **Alt + drag** draws automation freehand with a pencil; on release it's cleaned up into a
+  few points (one undo step).
+- The hover info box uses larger text.
+- The waveform always covers exactly the clip, so at "fit" it fills the whole window.
 - **Tabs are parameters.** Each tab has a checkbox to show or hide that parameter; shown
   parameters are **overlaid** in one view (a Stack mode can show them as separate lanes).
 - The **selected** parameter is drawn at full opacity and is the one you edit; the other shown
@@ -137,3 +152,15 @@ Not yet:
 - Inter Display font (needs .ttf files); Segoe UI is used meanwhile.
 - Plug-in scanning happens inside the host; a crashing plug-in during scan is remembered and
   skipped next time.
+
+## Architecture note (15 Nov 2026)
+
+Nuendo runs several copies of an ARA plug-in for one project: one renders the audio, another
+shows the window, others act as helpers. So ARAck keeps each clip's CHAIN, automation and undo
+history on the ARA **audio modification** (the clip), not in the plug-in copy. The copy that
+renders audio runs each clip through that clip's chain; the copy with the window edits the same
+chain. Each clip therefore has its own chain. Clip state is saved in the host project through
+the ARA archive. As a plain (non-ARA) VST3, ARAck uses one local chain instead.
+
+The window follows the clip selected in the host; if the host doesn't report a selection, it
+uses the ARAck clip under the playhead, otherwise the first one.

@@ -21,9 +21,9 @@ class ChainPanel::SlotRow final : public Component,
                                   public DragAndDropTarget
 {
 public:
-    SlotRow (ChainPanel& o, int i) : owner (o), index (i) {}
+    SlotRow (ChainPanel& o, int i) : owner (o), index (i) { setOpaque (true); }
 
-    ValueTree slot() const { return owner.proc.session.slots().getChild (index); }
+    ValueTree slot() const { return owner.model.session.slots().getChild (index); }
     int uid() const        { return slot()[IDs::uid]; }
 
     void paint (Graphics& g) override
@@ -31,9 +31,9 @@ public:
         auto s = slot();
         const bool hasPlugin = s[IDs::desc].toString().isNotEmpty();
         const bool enabled = s[IDs::enabled];
-        const bool selected = hasPlugin && owner.proc.selectedSlotUid == uid();
-        auto* inst = owner.proc.chain.getInstance (uid());
-        const bool loading = owner.proc.chain.isLoading (uid());
+        const bool selected = hasPlugin && owner.model.selectedSlotUid == uid();
+        auto* inst = owner.model.chain.getInstance (uid());
+        const bool loading = owner.model.chain.isLoading (uid());
 
         auto r = getLocalBounds();
         g.setColour (selected ? Theme::warm : (dragOver ? Theme::hover : Theme::bg));
@@ -80,6 +80,15 @@ public:
         g.setFont (Theme::font (13.5f, bold));
         g.drawText (text, nameR, Justification::centredLeft, true);
 
+        // red X to remove the plug-in
+        if (hasPlugin)
+        {
+            auto x = removeArea().toFloat().reduced (4.5f);
+            g.setColour (Theme::red.withAlpha (removeHover ? 1.0f : 0.75f));
+            g.drawLine (x.getX(), x.getY(), x.getRight(), x.getBottom(), 1.8f);
+            g.drawLine (x.getRight(), x.getY(), x.getX(), x.getBottom(), 1.8f);
+        }
+
         // divider + latency
         if (owner.showLatency)
         {
@@ -91,7 +100,7 @@ public:
             {
                 String lat = "off";
                 if (enabled && inst != nullptr)
-                    lat = String ((double) inst->getLatencySamples() / jmax (1.0, owner.proc.getSampleRate()) * 1000.0, 2);
+                    lat = String ((double) inst->getLatencySamples() / jmax (1.0, owner.model.chain.getSampleRate()) * 1000.0, 2);
                 else if (enabled)
                     lat = "-";
 
@@ -105,9 +114,14 @@ public:
     Rectangle<int> gripArea() const    { return { 4, 0, 18, getHeight() }; }
     Rectangle<int> powerArea() const   { return { 26, (getHeight() - 22) / 2, 22, 22 }; }
     Rectangle<int> latencyArea() const { return { getWidth() - 62, 0, 62, getHeight() }; }
+    Rectangle<int> removeArea() const
+    {
+        const int right = owner.showLatency ? latencyArea().getX() : getWidth();
+        return { right - 26, (getHeight() - 18) / 2, 18, 18 };
+    }
     Rectangle<int> nameArea() const
     {
-        return { 56, 0, (owner.showLatency ? latencyArea().getX() : getWidth()) - 62, getHeight() };
+        return { 56, 0, removeArea().getX() - 60, getHeight() };
     }
 
     void mouseDown (const MouseEvent& e) override
@@ -125,10 +139,16 @@ public:
         if (gripArea().contains (e.getPosition()) && hasPlugin)
             return; // drag handled in mouseDrag
 
+        if (hasPlugin && removeArea().expanded (3).contains (e.getPosition()))
+        {
+            owner.model.chain.removePlugin (uid());
+            return;
+        }
+
         if (powerArea().contains (e.getPosition()))
         {
             if (hasPlugin)
-                owner.proc.chain.setEnabled (uid(), ! (bool) s[IDs::enabled]);
+                owner.model.chain.setEnabled (uid(), ! (bool) s[IDs::enabled]);
             return;
         }
 
@@ -165,7 +185,7 @@ public:
     {
         dragOver = false;
         const int from = d.description.toString().fromFirstOccurrenceOf (":", false, false).getIntValue();
-        owner.proc.chain.moveSlot (from, index);
+        owner.model.chain.moveSlot (from, index);
         owner.refresh();
     }
 
@@ -173,6 +193,19 @@ private:
     ChainPanel& owner;
     const int index;
     bool dragOver = false, dragStarted = false;
+    bool removeHover = false;
+
+public:
+    void mouseMove (const MouseEvent& e) override
+    {
+        const bool h = removeArea().expanded (3).contains (e.getPosition());
+        if (h != removeHover) { removeHover = h; repaint(); }
+    }
+
+    void mouseExit (const MouseEvent&) override
+    {
+        if (removeHover) { removeHover = false; repaint(); }
+    }
 };
 
 //==============================================================================
@@ -345,11 +378,11 @@ void ChainPanel::moveResult (int delta)
 int ChainPanel::targetSlotForAdd() const
 {
     // The selected slot if it's empty, otherwise the first empty slot.
-    auto sel = proc.session.slotByUid (proc.selectedSlotUid);
+    auto sel = model.session.slotByUid (model.selectedSlotUid);
     if (sel.isValid() && sel[IDs::desc].toString().isEmpty())
-        return proc.selectedSlotUid;
+        return model.selectedSlotUid;
 
-    for (auto s : proc.session.slots())
+    for (auto s : model.session.slots())
         if (s[IDs::desc].toString().isEmpty())
             return s[IDs::uid];
 
@@ -371,7 +404,7 @@ void ChainPanel::addSelectedResult()
         return;
     }
 
-    proc.chain.loadPlugin (slotUid, results->items.getReference (results->selected));
+    model.chain.loadPlugin (slotUid, results->items.getReference (results->selected));
     closeSearch();
 
     if (onSelect)
@@ -392,8 +425,9 @@ void ChainPanel::focusSearch()
 }
 
 //==============================================================================
-ChainPanel::ChainPanel (ARAckProcessor& p) : proc (p)
+ChainPanel::ChainPanel (ClipModel& m) : model (m)
 {
+    setOpaque (true);
     for (int i = 0; i < Session::numSlots; ++i)
         addAndMakeVisible (rows.add (new SlotRow (*this, i)));
 
@@ -473,7 +507,7 @@ void ChainPanel::showLoadMenu (int slotUid)
                 const int idx = KnownPluginList::getIndexChosenByMenu (types, result);
                 if (isPositiveAndBelow (idx, types.size()))
                 {
-                    proc.chain.loadPlugin (slotUid, types.getReference (idx));
+                    model.chain.loadPlugin (slotUid, types.getReference (idx));
                     if (onSelect) onSelect (slotUid);
                 }
             }
@@ -482,7 +516,7 @@ void ChainPanel::showLoadMenu (int slotUid)
 
 void ChainPanel::showSlotMenu (int slotUid)
 {
-    auto s = proc.session.slotByUid (slotUid);
+    auto s = model.session.slotByUid (slotUid);
     PopupMenu m;
     m.addItem (1, (bool) s[IDs::enabled] ? "Disable" : "Enable");
     m.addItem (2, "Replace...");
@@ -490,10 +524,10 @@ void ChainPanel::showSlotMenu (int slotUid)
 
     m.showMenuAsync (PopupMenu::Options().withMousePosition(), [this, slotUid] (int r)
     {
-        auto slot = proc.session.slotByUid (slotUid);
-        if (r == 1) proc.chain.setEnabled (slotUid, ! (bool) slot[IDs::enabled]);
+        auto slot = model.session.slotByUid (slotUid);
+        if (r == 1) model.chain.setEnabled (slotUid, ! (bool) slot[IDs::enabled]);
         if (r == 2) showLoadMenu (slotUid);
-        if (r == 3) proc.chain.removePlugin (slotUid);
+        if (r == 3) model.chain.removePlugin (slotUid);
     });
 }
 

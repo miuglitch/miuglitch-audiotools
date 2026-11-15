@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../PluginProcessor.h"
+#include "../ARADocument.h"
 #include "Theme.h"
 
 // Left panel: a plug-in search bar on top (live results, arrow keys, Enter adds to
@@ -10,7 +10,7 @@ class ChainPanel final : public juce::Component,
                          private juce::ChangeListener
 {
 public:
-    explicit ChainPanel (ARAckProcessor&);
+    explicit ChainPanel (ClipModel&);
     ~ChainPanel() override;
 
     void paint (juce::Graphics&) override;
@@ -46,7 +46,7 @@ private:
 
     juce::SharedResourcePointer<PluginCatalog> catalog;
 
-    ARAckProcessor& proc;
+    ClipModel& model;
     juce::TextButton latencyButton { "Latency" };
     juce::OwnedArray<SlotRow> rows;
     std::unique_ptr<SearchBox> search;

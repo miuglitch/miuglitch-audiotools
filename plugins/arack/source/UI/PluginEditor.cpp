@@ -8,8 +8,11 @@ using namespace juce;
 void IconButton::paintButton (Graphics& g, bool over, bool down)
 {
     auto r = getLocalBounds().toFloat();
-    g.setColour (down ? Theme::frame : (over ? Colour (0xff2a2a2a) : Theme::displayCtrl));
-    g.fillRoundedRectangle (r, 6.0f);
+    if (! flat || over || down)
+    {
+        g.setColour (down ? Theme::frame : (over ? Colour (0xff2a2a2a) : Theme::displayCtrl));
+        g.fillRoundedRectangle (r, 6.0f);
+    }
 
     auto c = r.getCentre();
     Path p;
@@ -27,6 +30,20 @@ void IconButton::paintButton (Graphics& g, bool over, bool down)
 
         if (kind == Kind::redo)
             p.applyTransform (AffineTransform::scale (-1.0f, 1.0f, c.x, c.y));
+    }
+    else if (kind == Kind::popout)
+    {
+        // classic pop-out: a box with an arrow leaving its top-right corner
+        p.startNewSubPath (c.x + 1.0f, c.y - 6.0f);
+        p.lineTo (c.x - 6.0f, c.y - 6.0f);
+        p.lineTo (c.x - 6.0f, c.y + 6.0f);
+        p.lineTo (c.x + 6.0f, c.y + 6.0f);
+        p.lineTo (c.x + 6.0f, c.y - 1.0f);
+        p.startNewSubPath (c.x - 1.0f, c.y + 1.0f);
+        p.lineTo (c.x + 7.0f, c.y - 7.0f);
+        p.startNewSubPath (c.x + 2.0f, c.y - 7.0f);
+        p.lineTo (c.x + 7.0f, c.y - 7.0f);
+        p.lineTo (c.x + 7.0f, c.y - 2.0f);
     }
     else
     {
@@ -47,13 +64,14 @@ void IconButton::paintButton (Graphics& g, bool over, bool down)
         p.addEllipse (c.x - 2.6f, c.y - 2.6f, 5.2f, 5.2f);
     }
 
-    g.setColour (isEnabled() ? Colour (0xffd6d6d3) : Theme::mutedText);
+    g.setColour (getToggleState() ? Theme::orangeText : (isEnabled() ? Colour (0xffd6d6d3) : Theme::mutedText));
     g.strokePath (p, PathStrokeType (1.7f, PathStrokeType::curved, PathStrokeType::rounded));
 }
 
 //==============================================================================
 HeaderBar::HeaderBar()
 {
+    setOpaque (true);
     if (auto xml = parseXML (String::createStringFromData (BinaryData::miulogo_svg, BinaryData::miulogo_svgSize)))
         logo = Drawable::createFromSVG (*xml);
 
@@ -151,70 +169,91 @@ private:
     std::function<void()> onClose;
 };
 
-PluginPanel::PluginPanel (ARAckProcessor& p) : proc (p)
+PluginPanel::PluginPanel (ClipModel& m) : model (m)
 {
-    viewport.setScrollBarsShown (true, true);
-    addAndMakeVisible (viewport);
+    setOpaque (true);
 
-    floatButton.setClickingTogglesState (true);
-    floatButton.onClick = [this] { setFloating (floatButton.getToggleState()); };
-    addAndMakeVisible (floatButton);
-
-    onButton.setClickingTogglesState (true);
-    onButton.onClick = [this]
-    {
-        if (slotUid != 0)
-            proc.chain.setEnabled (slotUid, onButton.getToggleState());
-    };
-    addAndMakeVisible (onButton);
+    popoutButton.flat = true;
+    popoutButton.setClickingTogglesState (true);
+    popoutButton.setTooltip ("Open the plug-in in its own window");
+    popoutButton.onClick = [this] { setFloating (popoutButton.getToggleState()); };
+    addChildComponent (popoutButton);
 }
 
 PluginPanel::~PluginPanel()
 {
-    closeEditor();
+    closeAll();
 }
 
-void PluginPanel::closeEditor()
+AudioProcessorEditor* PluginPanel::currentEditor() const
 {
-    if (editor != nullptr)
-        editor->removeComponentListener (this);
+    auto it = editors.find (slotUid);
+    return it != editors.end() ? it->second.get() : nullptr;
+}
 
-    viewport.setViewedComponent (nullptr, false);
+void PluginPanel::closeEditor (int uid)
+{
+    auto it = editors.find (uid);
+    if (it == editors.end())
+        return;
 
-    if (floatWindow != nullptr)
+    if (floatWindow != nullptr && floatWindow->getContentComponent() == it->second.get())
     {
         floatWindow->clearContentComponent();
         floatWindow.reset();
+        popoutButton.setToggleState (false, dontSendNotification);
     }
 
-    editor.reset();
+    it->second->removeComponentListener (this);
+    removeChildComponent (it->second.get());
+    editors.erase (it);
+}
+
+void PluginPanel::closeAll()
+{
+    while (! editors.empty())
+        closeEditor (editors.begin()->first);
+
+    floatWindow.reset();
 }
 
 void PluginPanel::showSlot (int uid)
 {
-    if (uid == slotUid && (editor != nullptr || proc.chain.getInstance (uid) == nullptr))
+    if (floatWindow != nullptr)
     {
-        refresh();
-        return;
+        // switching slots docks the floating window back
+        if (auto* cur = currentEditor())
+        {
+            floatWindow->clearContentComponent();
+            floatWindow.reset();
+            addChildComponent (cur);
+        }
+        popoutButton.setToggleState (false, dontSendNotification);
     }
 
-    const bool wasFloating = floatWindow != nullptr;
-    closeEditor();
+    if (uid != slotUid)
+        if (auto* cur = currentEditor())
+            cur->setVisible (false);
+
     slotUid = uid;
 
-    if (auto* inst = proc.chain.getInstance (uid))
+    if (auto* inst = model.chain.getInstance (uid))
     {
-        editor.reset (inst->createEditorAndMakeActive());
+        auto& ed = editors[uid];
 
-        if (editor == nullptr)
-            editor = std::make_unique<GenericAudioProcessorEditor> (*inst);
+        if (ed == nullptr)
+        {
+            ed.reset (inst->createEditorAndMakeActive());
 
-        editor->addComponentListener (this);
+            if (ed == nullptr)
+                ed = std::make_unique<GenericAudioProcessorEditor> (*inst);
 
-        if (wasFloating)
-            setFloating (true);
-        else
-            viewport.setViewedComponent (editor.get(), false);
+            ed->addComponentListener (this);
+            addChildComponent (*ed);
+        }
+
+        resized();
+        ed->setVisible (true);
     }
 
     refresh();
@@ -222,18 +261,21 @@ void PluginPanel::showSlot (int uid)
 
 void PluginPanel::setFloating (bool shouldFloat)
 {
-    if (editor == nullptr)
+    auto* ed = currentEditor();
+
+    if (ed == nullptr)
     {
-        floatButton.setToggleState (false, dontSendNotification);
+        popoutButton.setToggleState (false, dontSendNotification);
         return;
     }
 
     if (shouldFloat && floatWindow == nullptr)
     {
-        viewport.setViewedComponent (nullptr, false);
-        floatWindow = std::make_unique<FloatWindow> (proc.session.slotByUid (slotUid)[IDs::name].toString(),
+        removeChildComponent (ed);
+        floatWindow = std::make_unique<FloatWindow> (model.session.slotByUid (slotUid)[IDs::name].toString(),
                                                      [this] { setFloating (false); });
-        floatWindow->setContentNonOwned (editor.get(), true);
+        floatWindow->setContentNonOwned (ed, true);
+        ed->setVisible (true);
         floatWindow->centreWithSize (floatWindow->getWidth(), floatWindow->getHeight());
         floatWindow->setVisible (true);
     }
@@ -241,66 +283,60 @@ void PluginPanel::setFloating (bool shouldFloat)
     {
         floatWindow->clearContentComponent();
         floatWindow.reset();
-        viewport.setViewedComponent (editor.get(), false);
+        addChildComponent (ed);
+        ed->setVisible (true);
     }
 
-    floatButton.setToggleState (floatWindow != nullptr, dontSendNotification);
+    popoutButton.setToggleState (floatWindow != nullptr, dontSendNotification);
     refresh();
 }
 
 Point<int> PluginPanel::dockedEditorSize() const
 {
-    if (editor != nullptr && floatWindow == nullptr)
-        return { editor->getWidth(), editor->getHeight() };
+    if (auto* ed = currentEditor())
+        if (floatWindow == nullptr)
+            return { ed->getWidth(), ed->getHeight() };
+
     return {};
 }
 
-void PluginPanel::componentMovedOrResized (Component&, bool, bool wasResized)
+void PluginPanel::componentMovedOrResized (Component& c, bool, bool wasResized)
 {
-    if (wasResized)
-    {
-        resized();
+    if (wasResized && &c == currentEditor())
         refresh();
-    }
 }
 
 void PluginPanel::instanceGoing (int uid)
 {
-    if (uid == slotUid)
-        closeEditor();
+    closeEditor (uid);
 }
 
 void PluginPanel::refresh()
 {
-    if (dockedEditorSize() != lastReportedSize)
+    // Plug-in finished loading after it was selected: show its window now.
+    if (currentEditor() == nullptr && model.chain.getInstance (slotUid) != nullptr)
     {
-        lastReportedSize = dockedEditorSize();
-        if (onContentSizeChanged)
-            MessageManager::callAsync ([safe = Component::SafePointer<PluginPanel> (this)]
-            {
-                if (safe != nullptr && safe->onContentSizeChanged) safe->onContentSizeChanged();
-            });
-    }
-
-    auto slot = proc.session.slotByUid (slotUid);
-    const bool hasPlugin = slot.isValid() && slot[IDs::desc].toString().isNotEmpty();
-
-    onButton.setVisible (hasPlugin);
-    floatButton.setVisible (editor != nullptr);
-    onButton.setToggleState (hasPlugin && (bool) slot[IDs::enabled], dontSendNotification);
-    onButton.setButtonText (onButton.getToggleState() ? "On" : "Off");
-
-    // Plug-in finished loading after it was selected: show its interface now.
-    if (editor == nullptr && proc.chain.getInstance (slotUid) != nullptr)
-    {
-        const int uid = slotUid;
-        slotUid = 0;
-        showSlot (uid);
+        showSlot (slotUid);
         return;
     }
 
+    popoutButton.setVisible (currentEditor() != nullptr);
+
+    if (dockedEditorSize() != lastReportedSize)
+    {
+        lastReportedSize = dockedEditorSize();
+        MessageManager::callAsync ([safe = Component::SafePointer<PluginPanel> (this)]
+        {
+            if (safe != nullptr && safe->onContentSizeChanged)
+                safe->onContentSizeChanged();
+        });
+    }
+
     resized();
-    repaint();
+    repaint (getLocalBounds().removeFromTop (ChainPanel::headerHeight));
+
+    if (currentEditor() == nullptr || floatWindow != nullptr)
+        repaint();
 }
 
 void PluginPanel::paint (Graphics& g)
@@ -311,95 +347,69 @@ void PluginPanel::paint (Graphics& g)
     g.setColour (Theme::bg);
     g.fillRect (h);
 
-    auto slot = proc.session.slotByUid (slotUid);
+    auto slot = model.session.slotByUid (slotUid);
     const bool hasPlugin = slot.isValid() && slot[IDs::desc].toString().isNotEmpty();
-    const int index = proc.session.slots().indexOf (slot);
+    const int index = model.session.slots().indexOf (slot);
 
     g.setColour (hasPlugin ? Theme::orange : Theme::frame);
     g.fillRect (h.removeFromBottom (3));
 
     g.setColour (Theme::headerText);
     if (hasPlugin)
-        Theme::drawCaps (g, String (index + 1).paddedLeft ('0', 2) + "  " + slot[IDs::name].toString(), h.withTrimmedLeft (14), 11.5f);
+        Theme::drawCaps (g, String (index + 1).paddedLeft ('0', 2) + "  " + slot[IDs::name].toString()
+                              + ((bool) slot[IDs::enabled] ? String() : String ("  (off)")),
+                         h.withTrimmedLeft (14), 11.5f);
     else
         Theme::drawCaps (g, "Plug-in", h.withTrimmedLeft (14), 11.5f);
 
-    auto body = getLocalBounds().withTrimmedTop (ChainPanel::headerHeight).reduced (10);
-    g.setColour (Theme::displayDiv);
-    g.drawRect (body);
-
     String msg;
-    if (! hasPlugin)                                   msg = "Select a slot, or click an empty slot to load a plug-in.";
-    else if (proc.chain.isLoading (slotUid))            msg = "Loading...";
-    else if (proc.chain.getInstance (slotUid) == nullptr) msg = "Could not load this plug-in. " + proc.chain.getLoadError (slotUid);
-    else if (floatWindow != nullptr)                   msg = "Plug-in window is floating.";
+    if (! hasPlugin)                                         msg = "Select a slot, or search above to add a plug-in.";
+    else if (model.chain.isLoading (slotUid))                msg = "Loading...";
+    else if (model.chain.getInstance (slotUid) == nullptr)   msg = "Could not load this plug-in. " + model.chain.getLoadError (slotUid);
+    else if (floatWindow != nullptr)                         msg = "The plug-in is open in its own window.";
 
     if (msg.isNotEmpty())
     {
         g.setColour (Theme::headerSub);
         g.setFont (Theme::font (14.0f));
-        g.drawFittedText (msg, body.reduced (20), Justification::centred, 3);
+        g.drawFittedText (msg, getLocalBounds().withTrimmedTop (ChainPanel::headerHeight).reduced (30), Justification::centred, 3);
     }
 }
 
 void PluginPanel::resized()
 {
     auto r = getLocalBounds();
-    auto h = r.removeFromTop (ChainPanel::headerHeight).withTrimmedBottom (3).reduced (8, 6);
-    onButton.setBounds (h.removeFromRight (56));
-    h.removeFromRight (6);
-    floatButton.setBounds (h.removeFromRight (66));
+    auto h = r.removeFromTop (ChainPanel::headerHeight).withTrimmedBottom (3).reduced (8, 5);
+    popoutButton.setBounds (h.removeFromRight (32));
 
-    auto body = r.reduced (11);
-    if (editor != nullptr && floatWindow == nullptr)
-    {
-        // centre the plug-in's own window inside the panel
-        const int w = jmin (body.getWidth(), editor->getWidth() + 2);
-        const int hh = jmin (body.getHeight(), editor->getHeight() + 2);
-        viewport.setBounds (body.withSizeKeepingCentre (w, hh));
-    }
-    else
-    {
-        viewport.setBounds ({});
-    }
+    auto body = r.reduced (padding);
+
+    if (auto* ed = currentEditor())
+        if (floatWindow == nullptr)
+            ed->setTopLeftPosition (body.getX() + jmax (0, (body.getWidth() - ed->getWidth()) / 2),
+                                    body.getY() + jmax (0, (body.getHeight() - ed->getHeight()) / 2));
 }
 
 //==============================================================================
 ARAckEditor::ARAckEditor (ARAckProcessor& p)
-    : AudioProcessorEditor (&p), AudioProcessorEditorARAExtension (&p),
-      proc (p), chainPanel (p), pluginPanel (p), automation (p)
+    : AudioProcessorEditor (&p), AudioProcessorEditorARAExtension (&p), proc (p)
 {
+    setOpaque (true);
     setLookAndFeel (&lnf);
-
     addAndMakeVisible (header);
-    addAndMakeVisible (chainPanel);
-    addAndMakeVisible (pluginPanel);
-    addAndMakeVisible (automation);
 
-    header.undoButton.onClick = [this] { proc.session.undo.undo(); };
-    header.redoButton.onClick = [this] { proc.session.undo.redo(); };
+    header.undoButton.onClick = [this] { if (model != nullptr) model->session.undo.undo(); };
+    header.redoButton.onClick = [this] { if (model != nullptr) model->session.undo.redo(); };
     header.settingsButton.setEnabled (false);
 
-    chainPanel.onSelect = [this] (int uid) { select (uid); };
-
-    proc.chain.onBeforeInstanceRemoved = [this] (int uid) { pluginPanel.instanceGoing (uid); };
-    proc.chain.onChanged = [this] { anyChange(); };
-
-    proc.session.root.addListener (this);
-
-    if (proc.selectedSlotUid != 0)
-        pluginPanel.showSlot (proc.selectedSlotUid);
-
-    // Host-driven resizing only (no extra corner grip): ARA hosts resize the editor themselves.
+    // Size is locked to fit the selected plug-in (with a minimum); the host can't stretch it.
     setResizable (true, false);
-    setResizeLimits (900, 600, 4000, 3000);
+    setResizeLimits (defaultWidth, defaultHeight, defaultWidth, defaultHeight);
     setSize (defaultWidth, defaultHeight);
-    pluginPanel.onContentSizeChanged = [this] { fitToPlugin(); };
     setWantsKeyboardFocus (true);
     addMouseListener (this, true); // any click inside ARAck gives it keyboard focus (for Ctrl+F, Ctrl+Z)
 
-    pluginPanel.refresh();
-    updateClipInfo();
+    updateClip();
     startTimerHz (30);
 
     // Developer self-test (standalone only): ARACK_SELFTEST=<search text> types it into
@@ -408,38 +418,88 @@ ARAckEditor::ARAckEditor (ARAckProcessor& p)
     if (selfTest.isNotEmpty() && proc.wrapperType == AudioProcessor::wrapperType_Standalone)
         Timer::callAfterDelay (1500, [safe = Component::SafePointer<ARAckEditor> (this), selfTest]
         {
-            if (safe != nullptr)
-                safe->chainPanel.runSelfTest (selfTest);
+            if (safe != nullptr && safe->view != nullptr)
+                safe->view->chainPanel.runSelfTest (selfTest);
         });
 }
 
 ARAckEditor::~ARAckEditor()
 {
-    proc.session.root.removeListener (this);
-    proc.chain.onBeforeInstanceRemoved = nullptr;
-    proc.chain.onChanged = nullptr;
+    bindTo (nullptr, nullptr);
     setLookAndFeel (nullptr);
 }
 
-void ARAckEditor::paint (Graphics& g)
+void ARAckEditor::bindTo (ClipModel* m, ARAAudioModification* mod)
 {
-    g.fillAll (Theme::bg);
+    if (m == model && mod == boundModification)
+        return;
 
-    // 4 px frames between the panels
-    g.setColour (Theme::frame);
-    const int top = header.getBottom();
-    g.fillRect (chainPanel.getRight(), top, 4, chainPanel.getHeight());
-    g.fillRect (0, automation.getY() - 4, getWidth(), 4);
+    if (model != nullptr)
+    {
+        model->session.root.removeListener (this);
+        model->chain.onBeforeInstanceRemoved = nullptr;
+        model->chain.onChanged = nullptr;
+    }
+
+    view.reset(); // closes plug-in windows before anything they use goes away
+
+    if (boundModification != nullptr)
+        boundModification->removeListener (this);
+
+    model = m;
+    boundModification = mod;
+
+    if (boundModification != nullptr)
+        boundModification->addListener (this);
+
+    if (model != nullptr)
+    {
+        view = std::make_unique<ClipView> (*model);
+        addAndMakeVisible (view->chainPanel);
+        addAndMakeVisible (view->pluginPanel);
+        addAndMakeVisible (view->automation);
+
+        view->chainPanel.onSelect = [this] (int uid) { select (uid); };
+        view->pluginPanel.onContentSizeChanged = [this] { fitToPlugin(); };
+
+        model->chain.onBeforeInstanceRemoved = [this] (int uid) { if (view != nullptr) view->pluginPanel.instanceGoing (uid); };
+        model->chain.onChanged = [this] { anyChange(); };
+        model->session.root.addListener (this);
+
+        if (model->selectedSlotUid != 0)
+            view->pluginPanel.showSlot (model->selectedSlotUid);
+        else
+            view->pluginPanel.refresh();
+    }
+
+    resized();
+    fitToPlugin();
+    repaint();
+}
+
+void ARAckEditor::willDestroyAudioModification (ARAAudioModification* mod)
+{
+    if (mod == boundModification)
+    {
+        lastRegion = nullptr;
+        bindTo (nullptr, nullptr);
+        header.setClip (-1.0, {});
+    }
 }
 
 void ARAckEditor::fitToPlugin()
 {
-    // Grow (or shrink back) so the docked plug-in window fits without overlapping
-    // the automation area. Native plug-in windows can't be clipped, so this matters.
-    const auto need = pluginPanel.dockedEditorSize();
+    // Fit the docked plug-in window exactly, never smaller than the default size.
+    // Native plug-in windows can't be clipped, so they must never overlap the automation.
+    Point<int> need;
+    if (view != nullptr)
+        need = view->pluginPanel.dockedEditorSize();
+
     const int pad = 2 * PluginPanel::padding + 2;
     const int w = jmax (defaultWidth, chainWidth + 4 + need.x + pad);
-    const int h = jmax (defaultHeight, headerHeight + ChainPanel::headerHeight + need.y + pad + 4 + automationHeight);
+    const int h = jmax (defaultHeight, headerHeight + ChainPanel::headerHeight + need.y + pad + 4 + automationHeight + 10);
+
+    setResizeLimits (w, h, w, h);
 
     if (w != getWidth() || h != getHeight())
     {
@@ -448,19 +508,34 @@ void ARAckEditor::fitToPlugin()
     }
 }
 
+void ARAckEditor::paint (Graphics& g)
+{
+    g.fillAll (Theme::bg);
+
+    if (view != nullptr)
+    {
+        g.setColour (Theme::frame);
+        g.fillRect (view->chainPanel.getRight(), header.getBottom(), 4, view->chainPanel.getHeight());
+        g.fillRect (0, view->pluginPanel.getBottom(), getWidth(), 4);
+    }
+}
+
 void ARAckEditor::resized()
 {
     auto r = getLocalBounds();
     header.setBounds (r.removeFromTop (headerHeight));
 
-    const int autoH = automationHeight;
+    if (view == nullptr)
+        return;
+
     // Gutter around the automation area so nothing overlaps its edges.
-    automation.setBounds (r.removeFromBottom (autoH).reduced (10, 0).withTrimmedBottom (10));
+    auto autoArea = r.removeFromBottom (automationHeight + 10);
+    view->automation.setBounds (autoArea.reduced (10, 0).withTrimmedBottom (10));
     r.removeFromBottom (4);
 
-    chainPanel.setBounds (r.removeFromLeft (chainWidth));
+    view->chainPanel.setBounds (r.removeFromLeft (chainWidth));
     r.removeFromLeft (4);
-    pluginPanel.setBounds (r);
+    view->pluginPanel.setBounds (r);
 }
 
 void ARAckEditor::mouseDown (const MouseEvent&)
@@ -473,21 +548,21 @@ bool ARAckEditor::keyPressed (const KeyPress& k)
 {
     const auto mods = k.getModifiers();
 
-    if (mods.isCommandDown() && k.getKeyCode() == 'Z')
+    if (model != nullptr && mods.isCommandDown() && k.getKeyCode() == 'Z')
     {
-        mods.isShiftDown() ? proc.session.undo.redo() : proc.session.undo.undo();
+        mods.isShiftDown() ? model->session.undo.redo() : model->session.undo.undo();
         return true;
     }
 
-    if (mods.isCommandDown() && k.getKeyCode() == 'F')
+    if (model != nullptr && mods.isCommandDown() && k.getKeyCode() == 'Y')
     {
-        chainPanel.focusSearch();
+        model->session.undo.redo();
         return true;
     }
 
-    if (mods.isCommandDown() && k.getKeyCode() == 'Y')
+    if (view != nullptr && mods.isCommandDown() && k.getKeyCode() == 'F')
     {
-        proc.session.undo.redo();
+        view->chainPanel.focusSearch();
         return true;
     }
 
@@ -496,106 +571,127 @@ bool ARAckEditor::keyPressed (const KeyPress& k)
 
 void ARAckEditor::select (int uid)
 {
-    proc.selectedSlotUid = uid;
-    pluginPanel.showSlot (uid);
-    chainPanel.refresh();
+    if (model == nullptr || view == nullptr)
+        return;
+
+    model->selectedSlotUid = uid;
+    view->pluginPanel.showSlot (uid);
+    view->chainPanel.refresh();
 }
 
 void ARAckEditor::anyChange()
 {
-    // If the selected slot was emptied (or undo removed its plug-in), keep the panel in step.
-    pluginPanel.refresh();
-    chainPanel.refresh();
-    automation.repaint();
+    if (view != nullptr)
+    {
+        view->pluginPanel.refresh();
+        view->chainPanel.refresh();
+        view->automation.repaint();
+    }
 
-    header.undoButton.setEnabled (proc.session.undo.canUndo());
-    header.redoButton.setEnabled (proc.session.undo.canRedo());
+    header.undoButton.setEnabled (model != nullptr && model->session.undo.canUndo());
+    header.redoButton.setEnabled (model != nullptr && model->session.undo.canRedo());
 }
 
-void ARAckEditor::updateClipInfo()
+void ARAckEditor::updateClip()
 {
+    auto* editorView = getARAEditorView();
+
+    if (editorView == nullptr)
+    {
+        // Plain VST3 / standalone: one local clip model, no ARA clip.
+        bindTo (&proc.localModel, nullptr);
+        header.setClip (-1.0, {});
+        if (view != nullptr)
+            view->automation.setClip (nullptr, 0.0, 30000.0);
+        return;
+    }
+
     ARAPlaybackRegion* region = nullptr;
     String foundVia;
 
     // 1. The clip selected in the host.
-    if (auto* view = getARAEditorView())
+    const auto selected = editorView->getViewSelection().getEffectivePlaybackRegions<ARAPlaybackRegion>();
+    if (! selected.empty())
     {
-        const auto selected = view->getViewSelection().getEffectivePlaybackRegions<ARAPlaybackRegion>();
-        if (! selected.empty())
-        {
-            region = selected.front();
-            foundVia = "selection";
-        }
+        region = selected.front();
+        foundVia = "selection";
     }
 
-    // 2. The clips this instance is rendering.
-    if (auto* r = (region == nullptr ? proc.getPlaybackRenderer<ARAckPlaybackRenderer>() : nullptr))
-    {
-        const auto& regions = r->getPlaybackRegions();
-        const double t = proc.hostTimeSeconds.load();
-
-        for (auto* reg : regions)
-            if (t >= reg->getStartInPlaybackTime() && t < reg->getEndInPlaybackTime())
-                region = reg;
-
-        if (region == nullptr && ! regions.empty())
-            region = regions.front();
-
-        if (region != nullptr)
-            foundVia = "renderer";
-    }
-
-    // 3. Any clip in the ARA document.
+    // 2. The ARAck clip under the host playhead, otherwise the first ARAck clip.
     if (region == nullptr)
-        if (auto* view = getARAEditorView())
-            if (auto* doc = view->getDocumentController()->getDocument<ARADocument>())
-                for (auto* seq : doc->getRegionSequences<ARARegionSequence>())
-                    if (region == nullptr && ! seq->getPlaybackRegions<ARAPlaybackRegion>().empty())
-                    {
-                        region = seq->getPlaybackRegions<ARAPlaybackRegion>().front();
-                        foundVia = "document";
-                    }
+        if (auto* doc = editorView->getDocumentController()->getDocument<ARADocument>())
+        {
+            const double t = proc.hostTimeSeconds.load();
+            ARAPlaybackRegion* first = nullptr;
+
+            for (auto* seq : doc->getRegionSequences<ARARegionSequence>())
+                for (auto* reg : seq->getPlaybackRegions<ARAPlaybackRegion>())
+                {
+                    if (first == nullptr) first = reg;
+                    if (region == nullptr && t >= reg->getStartInPlaybackTime() && t < reg->getEndInPlaybackTime())
+                        region = reg;
+                }
+
+            foundVia = region != nullptr ? "playhead" : "first in document";
+            if (region == nullptr)
+                region = first;
+        }
 
     if (region != lastRegion)
     {
         lastRegion = region;
-        arackLog ("Clip: ARA editor view " + String (isARAEditorView() ? "yes" : "no")
-                  + ", playback renderer " + String (proc.isPlaybackRenderer() ? "yes" : "no")
-                  + ", region " + (region != nullptr ? "from " + foundVia : String ("none")));
+
+        if (region != nullptr)
+        {
+            auto* src = region->getAudioModification()->getAudioSource();
+            arackLog ("Clip from " + foundVia + ": start " + String (region->getStartInPlaybackTime(), 3)
+                      + " s, length " + String (region->getDurationInPlaybackTime(), 3)
+                      + " s, offset in file " + String (region->getStartInAudioModificationTime(), 3)
+                      + " s; file " + String (src->getDuration(), 3) + " s at " + String (src->getSampleRate())
+                      + " Hz, " + String (src->getChannelCount()) + " ch; project " + String (proc.getSampleRate()) + " Hz");
+        }
+        else
+        {
+            arackLog ("Clip: none");
+        }
     }
 
-    if (region != nullptr)
+    if (region == nullptr)
     {
-        auto* source = region->getAudioModification()->getAudioSource();
-        String name;
-        if (const char* n = source->getName())
-            name = String::fromUTF8 (n);
-        if (name.isEmpty())
-            if (const char* n = region->getName())
-                name = String::fromUTF8 (n);
-
-        const double lengthMs = region->getDurationInPlaybackTime() * 1000.0;
-        header.setClip (lengthMs, name);
-        automation.setClip (source, region->getStartInAudioModificationTime(), lengthMs);
-    }
-    else
-    {
+        bindTo (nullptr, nullptr);
         header.setClip (-1.0, {});
-        automation.setClip (nullptr, 0.0, 30000.0);
+        return;
     }
+
+    auto* mod = region->getAudioModification<ARAckAudioModification>();
+    bindTo (&mod->model, mod);
+
+    auto* source = mod->getAudioSource();
+    String name;
+    if (const char* n = source->getName())
+        name = String::fromUTF8 (n);
+    if (name.isEmpty())
+        if (const char* n = region->getName())
+            name = String::fromUTF8 (n);
+
+    const double lengthMs = region->getDurationInPlaybackTime() * 1000.0;
+    header.setClip (lengthMs, name);
+
+    if (view != nullptr)
+        view->automation.setClip (source, region->getStartInAudioModificationTime(), lengthMs);
 }
 
 void ARAckEditor::timerCallback()
 {
-    static int tick = 0;
     if (++tick % 6 == 0)
     {
-        updateClipInfo();
-        header.undoButton.setEnabled (proc.session.undo.canUndo());
-        header.redoButton.setEnabled (proc.session.undo.canRedo());
-        chainPanel.refresh();
+        updateClip();
+        header.undoButton.setEnabled (model != nullptr && model->session.undo.canUndo());
+        header.redoButton.setEnabled (model != nullptr && model->session.undo.canRedo());
+        if (view != nullptr)
+            view->chainPanel.refresh();
     }
 
-    if (proc.hostPlaying.load())
-        automation.repaint();
+    if (view != nullptr && model != nullptr && model->playPositionMs.load() >= 0.0)
+        view->automation.repaint();
 }

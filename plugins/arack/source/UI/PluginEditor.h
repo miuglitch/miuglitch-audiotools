@@ -5,18 +5,19 @@
 #include "ChainPanel.h"
 #include "AutomationPanel.h"
 
-// Small icon button (undo / redo / settings) for the display header.
+// Small icon button (undo / redo / settings / pop-out).
 class IconButton final : public juce::Button
 {
 public:
-    enum class Kind { undo, redo, settings };
+    enum class Kind { undo, redo, settings, popout };
     IconButton (Kind k) : juce::Button ({}), kind (k) {}
     void paintButton (juce::Graphics&, bool over, bool down) override;
+    bool flat = false; // no filled background (used in panel headers)
 private:
     Kind kind;
 };
 
-// Black display strip: logo, clip length (ms), ARA file name, undo/redo, settings.
+// Black display strip: logo, clip length, ARA file name, undo/redo, settings.
 class HeaderBar final : public juce::Component
 {
 public:
@@ -34,12 +35,13 @@ private:
     juce::String file;
 };
 
-// Middle panel: shows the selected slot's own plug-in interface.
+// Middle panel: the selected slot's own plug-in window. Plug-in windows are kept open
+// per slot once created and just shown/hidden when switching, so switching doesn't flicker.
 class PluginPanel final : public juce::Component,
                           private juce::ComponentListener
 {
 public:
-    explicit PluginPanel (ARAckProcessor&);
+    explicit PluginPanel (ClipModel&);
     ~PluginPanel() override;
 
     void showSlot (int slotUid);
@@ -51,31 +53,42 @@ public:
     std::function<void()> onContentSizeChanged;
     static constexpr int padding = 11;
 
-private:
-    juce::Point<int> lastReportedSize;
-
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
     class FloatWindow;
-    void closeEditor();
+    juce::AudioProcessorEditor* currentEditor() const;
+    void closeEditor (int slotUid);
+    void closeAll();
     void setFloating (bool);
     void componentMovedOrResized (juce::Component&, bool, bool wasResized) override;
 
-    ARAckProcessor& proc;
+    ClipModel& model;
     int slotUid = 0;
-    std::unique_ptr<juce::AudioProcessorEditor> editor;
+    std::map<int, std::unique_ptr<juce::AudioProcessorEditor>> editors;
     std::unique_ptr<FloatWindow> floatWindow;
-    juce::Viewport viewport;
-    juce::TextButton floatButton { "Float" }, onButton { "On" };
+    IconButton popoutButton { IconButton::Kind::popout };
+    juce::Point<int> lastReportedSize;
+};
+
+// One clip's worth of interface (search + CHAIN, plug-in window, automation).
+// Rebuilt when the selected clip changes.
+struct ClipView
+{
+    explicit ClipView (ClipModel& m) : model (m), chainPanel (m), pluginPanel (m), automation (m) {}
+    ClipModel& model;
+    ChainPanel chainPanel;
+    PluginPanel pluginPanel;
+    AutomationPanel automation;
 };
 
 class ARAckEditor final : public juce::AudioProcessorEditor,
                           public juce::AudioProcessorEditorARAExtension,
                           public juce::DragAndDropContainer,
                           private juce::Timer,
-                          private juce::ValueTree::Listener
+                          private juce::ValueTree::Listener,
+                          private juce::ARAAudioModification::Listener
 {
 public:
     explicit ARAckEditor (ARAckProcessor&);
@@ -90,13 +103,11 @@ public:
 
 private:
     void timerCallback() override;
-    void updateClipInfo();
+    void updateClip();
+    void bindTo (ClipModel*, juce::ARAAudioModification*);
     void select (int slotUid);
     void anyChange();
     void fitToPlugin();
-
-    static constexpr int defaultWidth = 1100, defaultHeight = 770;
-    static constexpr int headerHeight = 60, chainWidth = 270, automationHeight = 240;
 
     void valueTreePropertyChanged (juce::ValueTree&, const juce::Identifier&) override { anyChange(); }
     void valueTreeChildAdded (juce::ValueTree&, juce::ValueTree&) override { anyChange(); }
@@ -104,11 +115,19 @@ private:
     void valueTreeChildOrderChanged (juce::ValueTree&, int, int) override { anyChange(); }
     void valueTreeRedirected (juce::ValueTree&) override { anyChange(); }
 
+    void willDestroyAudioModification (juce::ARAAudioModification*) override;
+
+    static constexpr int defaultWidth = 1100, defaultHeight = 770;
+    static constexpr int headerHeight = 60, chainWidth = 270, automationHeight = 240;
+
     ARAckProcessor& proc;
     ARAckLookAndFeel lnf;
+    juce::TooltipWindow tooltips { this, 1000 };
     HeaderBar header;
-    ChainPanel chainPanel;
-    PluginPanel pluginPanel;
-    AutomationPanel automation;
+
+    ClipModel* model = nullptr;
+    juce::ARAAudioModification* boundModification = nullptr;
+    std::unique_ptr<ClipView> view;
     juce::ARAPlaybackRegion* lastRegion = nullptr;
+    int tick = 0;
 };

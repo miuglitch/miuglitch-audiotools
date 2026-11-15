@@ -1,20 +1,24 @@
 #pragma once
 
-#include "../PluginProcessor.h"
+#include "../ARADocument.h"
 #include "Theme.h"
-#include <juce_audio_utils/juce_audio_utils.h>
 
-// Bottom panel. ADD AUTO (record mode) on the left: while it's on, every plug-in
-// parameter you touch gets a tab. Tabs have an on/off checkbox; active lanes are
-// overlaid over the clip waveform, the selected lane at full opacity and editable.
-// The view fits the whole clip; drag the strip at the top of the waveform (up/down
-// zooms, left/right scrolls) or Ctrl+mouse wheel to zoom. Double-click the strip to fit.
+// Bottom panel.
+// - ADD AUTO (vertical, on the left): record mode. While on, every plug-in parameter you
+//   touch gets a tab. Hover for a tooltip.
+// - Tabs: one per parameter, checkbox = on/off. Active lanes are overlaid over the clip
+//   waveform; the selected one is full opacity and editable, the rest faded.
+// - Editing: click to add a point, drag points to move, drag on empty space for a box
+//   selection (then drag any selected point to move them all), Delete removes selected
+//   points, double-click a point to delete it, Alt+drag draws with a pencil (cleaned up
+//   on release).
+// - View: always fits the whole clip. Drag the strip at the top (down/up = zoom, sideways
+//   = scroll), Ctrl+wheel zooms, middle mouse drag pans, double-click the strip to fit.
 class AutomationPanel final : public juce::Component,
-                              private juce::ChangeListener,
                               private juce::ARAAudioSource::Listener
 {
 public:
-    explicit AutomationPanel (ARAckProcessor&);
+    explicit AutomationPanel (ClipModel&);
     ~AutomationPanel() override;
 
     // Clip shown in the panel. source may be null (no ARA clip).
@@ -29,17 +33,23 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
     void mouseDoubleClick (const juce::MouseEvent&) override;
     void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+    bool keyPressed (const juce::KeyPress&) override;
 
 private:
+    static constexpr int sideWidth = 30;
     static constexpr int tabsHeight = 32;
     static constexpr int rulerHeight = 24;
     static constexpr int zoomStripHeight = 22;
-    static constexpr int addAutoWidth = 96;
+
+    class VerticalToggle;
+    class Peaks;
 
     struct Tab { juce::ValueTree lane; juce::Rectangle<int> bounds, box; };
 
+    juce::Rectangle<int> content() const;
     std::vector<Tab> layoutTabs() const;
     juce::Rectangle<int> areaBounds() const;
+    juce::Rectangle<int> lanesBounds() const;
     juce::Rectangle<int> zoomStrip() const;
     juce::Rectangle<int> rulerBounds() const;
     float msToX (double ms) const;
@@ -54,30 +64,32 @@ private:
     double rulerStep() const;
     void setView (double start, double end);
     void zoomAround (double anchorMs, float anchorX, double factor);
+    void finishPencil();
+    bool isSelected (const juce::ValueTree& pt) const;
 
     void paintTabs (juce::Graphics&);
     void paintArea (juce::Graphics&);
     void paintRuler (juce::Graphics&);
 
-    void changeListenerCallback (juce::ChangeBroadcaster*) override { repaint(); }
     void willDestroyAudioSource (juce::ARAAudioSource*) override;
 
-    ARAckProcessor& proc;
-    juce::TextButton addAutoButton { "Add auto" };
+    ClipModel& model;
+    std::unique_ptr<VerticalToggle> addAutoButton;
 
     int selectedLaneUid = 0;
     double clipLengthMs = 30000.0;
     double clipStartSeconds = 0.0;
     double viewStart = 0.0, viewEnd = 30000.0;
     float hoverX = -1.0f;
-    juce::ValueTree dragPoint;
 
-    // zoom-strip drag
-    bool zoomDragging = false;
+    enum class Drag { none, zoom, pan, movePoints, box, pencil, pendingClick };
+    Drag drag = Drag::none;
     double dragStartView0 = 0.0, dragStartView1 = 0.0, dragAnchorMs = 0.0;
+    juce::Array<juce::ValueTree> selection;
+    std::vector<std::pair<double, float>> moveOrigins;
+    juce::Rectangle<int> boxRect;
+    std::vector<std::pair<double, float>> pencil;
 
     juce::ARAAudioSource* audioSource = nullptr;
-    juce::AudioFormatManager formatManager;
-    juce::AudioThumbnailCache thumbCache { 4 };
-    juce::AudioThumbnail thumbnail { 256, formatManager, thumbCache };
+    std::unique_ptr<Peaks> peaks;
 };

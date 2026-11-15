@@ -1,10 +1,10 @@
 #pragma once
 
 #include "ARADocument.h"
-#include "ChainEngine.h"
 
 class ARAckProcessor final : public juce::AudioProcessor,
-                             public juce::AudioProcessorARAExtension
+                             public juce::AudioProcessorARAExtension,
+                             private juce::Timer
 {
 public:
     ARAckProcessor();
@@ -30,21 +30,22 @@ public:
     const juce::String getProgramName (int) override { return {}; }
     void changeProgramName (int, const juce::String&) override {}
 
+    // Only used when ARAck runs as a plain (non-ARA) VST3. In ARA mode each clip's
+    // state is saved through the ARA document archive instead.
     void getStateInformation (juce::MemoryBlock&) override;
     void setStateInformation (const void*, int) override;
 
     juce::AudioProcessorARAExtension* getARAClientExtensions() override { return this; }
 
-    Session session;
-    ChainEngine chain { session, *this };
+    // The clip model used when there is no ARA (plain insert / standalone).
+    ClipModel localModel;
 
-    // For the UI.
-    std::atomic<double> clipPositionMs { -1.0 }; // -1 = outside any clip
     std::atomic<double> hostTimeSeconds { 0.0 };
     std::atomic<bool> hostPlaying { false };
-    int selectedSlotUid = 0; // UI state, not part of undo
 
 private:
+    void timerCallback() override; // reports chain latency to the host
+
     JUCE_DECLARE_WEAK_REFERENCEABLE (ARAckProcessor)
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ARAckProcessor)
 };
