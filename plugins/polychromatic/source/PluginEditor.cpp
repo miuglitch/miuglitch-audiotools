@@ -98,8 +98,8 @@ void CustomScaleKeyboard::paint (juce::Graphics& g)
 // Editor
 //==============================================================================
 
-SpectralHarmonizerAudioProcessorEditor::SpectralHarmonizerAudioProcessorEditor (
-        SpectralHarmonizerAudioProcessor& p)
+PolychromaticAudioProcessorEditor::PolychromaticAudioProcessorEditor (
+        PolychromaticAudioProcessor& p)
     : AudioProcessorEditor (&p), processor_ (p)
 {
     setupSlider (amount_,       ParamID::Amount,       "Amount",    true);
@@ -158,12 +158,12 @@ SpectralHarmonizerAudioProcessorEditor::SpectralHarmonizerAudioProcessorEditor (
     startTimerHz (15);
 }
 
-SpectralHarmonizerAudioProcessorEditor::~SpectralHarmonizerAudioProcessorEditor()
+PolychromaticAudioProcessorEditor::~PolychromaticAudioProcessorEditor()
 {
     stopTimer();
 }
 
-void SpectralHarmonizerAudioProcessorEditor::setupSlider (LabelledSlider& s, const juce::String& id,
+void PolychromaticAudioProcessorEditor::setupSlider (LabelledSlider& s, const juce::String& id,
                                                           const juce::String& text, bool rotary)
 {
     s.slider.setSliderStyle (rotary ? juce::Slider::RotaryHorizontalVerticalDrag
@@ -183,7 +183,7 @@ void SpectralHarmonizerAudioProcessorEditor::setupSlider (LabelledSlider& s, con
     s.attach = std::make_unique<SliderAttachment> (processor_.apvts, id, s.slider);
 }
 
-void SpectralHarmonizerAudioProcessorEditor::setupCombo (LabelledCombo& c, const juce::String& id,
+void PolychromaticAudioProcessorEditor::setupCombo (LabelledCombo& c, const juce::String& id,
                                                          const juce::String& text)
 {
     if (auto* param = dynamic_cast<juce::AudioParameterChoice*> (processor_.apvts.getParameter (id)))
@@ -195,7 +195,7 @@ void SpectralHarmonizerAudioProcessorEditor::setupCombo (LabelledCombo& c, const
     c.attach = std::make_unique<ComboAttachment> (processor_.apvts, id, c.box);
 }
 
-void SpectralHarmonizerAudioProcessorEditor::updateCustomVisibility()
+void PolychromaticAudioProcessorEditor::updateCustomVisibility()
 {
     const int sc = (int) processor_.apvts.getRawParameterValue (ParamID::Scale)->load();
     const bool custom = sc >= GlitchCore::kCustomScaleIndex;
@@ -210,7 +210,7 @@ void SpectralHarmonizerAudioProcessorEditor::updateCustomVisibility()
     setSize (kWidth, kBaseHeight + (custom ? kKeysHeight : 0));
 }
 
-void SpectralHarmonizerAudioProcessorEditor::timerCallback()
+void PolychromaticAudioProcessorEditor::timerCallback()
 {
     updateCustomVisibility();
     keyboard_.setMask (processor_.getCustomMask());
@@ -226,7 +226,7 @@ void SpectralHarmonizerAudioProcessorEditor::timerCallback()
     statusLabel_.setText (status, juce::dontSendNotification);
 }
 
-void SpectralHarmonizerAudioProcessorEditor::paint (juce::Graphics& g)
+void PolychromaticAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (kBg);
     g.setColour (kPanel);
@@ -234,7 +234,7 @@ void SpectralHarmonizerAudioProcessorEditor::paint (juce::Graphics& g)
 
     g.setColour (kText);
     g.setFont (juce::FontOptions (20.0f, juce::Font::bold));
-    g.drawText ("SPECTRAL HARMONIZER", 20, 14, 300, 26, juce::Justification::centredLeft);
+    g.drawText ("POLYCHROMATIC", 20, 14, 300, 26, juce::Justification::centredLeft);
 
     if (customShown_)
     {
@@ -245,7 +245,7 @@ void SpectralHarmonizerAudioProcessorEditor::paint (juce::Graphics& g)
     }
 }
 
-void SpectralHarmonizerAudioProcessorEditor::resized()
+void PolychromaticAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds().reduced (20);
     auto header = area.removeFromTop (26);

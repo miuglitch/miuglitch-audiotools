@@ -1,4 +1,4 @@
-# Spectral Harmonizer
+# Polychromatic
 
 Pulls the energy of every FFT bin onto the nearest target note and re-emits it
 as phase-continuous, ringing partials. Built for soundscapes and sparkles, so
@@ -31,7 +31,7 @@ cmake --build build --config Release
 
 Add `-DGLITCHCORE_COPY_PLUGINS=ON` to copy the VST3 to the system folder after
 building, and `-DGLITCHCORE_BUILD_TESTS=ON` then `ctest` to run the offline DSP
-checks in `tests/harmonizer_test.cpp`.
+checks in `tests/polychromatic_test.cpp`.
 
 In Ableton Live, MIDI reaches an audio effect by setting a MIDI track's
-"MIDI To" to the track holding the plugin, then choosing "Spectral Harmonizer".
+"MIDI To" to the track holding the plugin, then choosing "Polychromatic".

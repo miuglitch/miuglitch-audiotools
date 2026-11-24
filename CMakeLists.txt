@@ -7,7 +7,7 @@ option(GLITCHCORE_BUILD_TESTS   "Build the offline DSP tests in tests/" OFF)
 # Collect all DSP source files
 add_library(GlitchCore STATIC
     dsp/disintegrate/disintegrate.cpp
-    dsp/harmonizer/harmonizer.cpp
+    dsp/polychromatic/polychromatic.cpp
 )
 
 # Where to find the header files
@@ -27,11 +27,11 @@ set_target_properties(GlitchCore PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 if (GLITCHCORE_BUILD_TESTS)
     enable_testing()
-    add_executable(harmonizer_test tests/harmonizer_test.cpp)
-    target_link_libraries(harmonizer_test PRIVATE GlitchCore)
-    add_test(NAME harmonizer_test COMMAND harmonizer_test)
+    add_executable(polychromatic_test tests/polychromatic_test.cpp)
+    target_link_libraries(polychromatic_test PRIVATE GlitchCore)
+    add_test(NAME polychromatic_test COMMAND polychromatic_test)
 endif()
 
 if (GLITCHCORE_BUILD_PLUGINS)
-    add_subdirectory(plugins/harmonizer)
+    add_subdirectory(plugins/polychromatic)
 endif()

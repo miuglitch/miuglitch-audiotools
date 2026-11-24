@@ -1,11 +1,11 @@
-// Offline checks for SpectralHarmonizer: null at 0 %, latency, tonal pull.
-#include "dsp/harmonizer/harmonizer.h"
+// Offline checks for Polychromatic: null at 0 %, latency, tonal pull.
+#include "dsp/polychromatic/polychromatic.h"
 #include <cstdio>
 #include <cmath>
 #include <random>
 #include <vector>
 
-using GlitchCore::SpectralHarmonizer;
+using GlitchCore::Polychromatic;
 static constexpr double kPi = 3.14159265358979323846;
 
 static int failures = 0;
@@ -17,8 +17,8 @@ static std::vector<float> noise (int n, unsigned seed)
     std::vector<float> v ((size_t) n); for (auto& x : v) x = d (r); return v;
 }
 
-static void run (SpectralHarmonizer& h, std::vector<float>& L, std::vector<float>& R,
-                 std::vector<float>& oL, std::vector<float>& oR, const SpectralHarmonizer::Params& p, int block)
+static void run (Polychromatic& h, std::vector<float>& L, std::vector<float>& R,
+                 std::vector<float>& oL, std::vector<float>& oR, const Polychromatic::Params& p, int block)
 {
     const int n = (int) L.size();
     oL.assign ((size_t) n, 0); oR.assign ((size_t) n, 0);
@@ -60,14 +60,14 @@ static double tonalFraction (const std::vector<float>& x, double sr, int start, 
 int main()
 {
     const double sr = 48000.0;
-    for (auto size : { SpectralHarmonizer::FftSize::k4096, SpectralHarmonizer::FftSize::k2048 })
+    for (auto size : { Polychromatic::FftSize::k4096, Polychromatic::FftSize::k2048 })
     {
-        SpectralHarmonizer h; h.prepare (sr, 512, size);
+        Polychromatic h; h.prepare (sr, 512, size);
         const int lat = h.getLatencySamples();
         const int n = 48000 * 2;
         auto L = noise (n, 1), R = noise (n, 2);
         std::vector<float> oL, oR;
-        SpectralHarmonizer::Params p; p.amount = 0.0f;
+        Polychromatic::Params p; p.amount = 0.0f;
         run (h, L, R, oL, oR, p, 333);
         double err = 0;
         for (int i = lat; i < n; ++i) err = std::max (err, (double) std::abs (oL[(size_t) i] - L[(size_t) (i - lat)]));
@@ -85,11 +85,11 @@ int main()
 
     // Tonal pull: noise in, C major at 100 % → energy concentrates on the scale.
     {
-        SpectralHarmonizer h; h.prepare (sr, 512);
+        Polychromatic h; h.prepare (sr, 512);
         const int n = 48000 * 3;
         auto L = noise (n, 3), R = noise (n, 4);
         std::vector<float> oL, oR;
-        SpectralHarmonizer::Params p; p.scale = 0; p.root = 0;
+        Polychromatic::Params p; p.scale = 0; p.root = 0;
         const std::uint16_t cmaj = GlitchCore::kScales[0].mask;
         const double before = tonalFraction (L, sr, 48000, cmaj, 0);
         p.amount = 0.5f; run (h, L, R, oL, oR, p, 512);
@@ -107,11 +107,11 @@ int main()
 
     // MIDI: one held A3 in harmonic mode → output energy on A harmonics.
     {
-        SpectralHarmonizer h; h.prepare (sr, 512);
+        Polychromatic h; h.prepare (sr, 512);
         const int n = 48000 * 2;
         auto L = noise (n, 5), R = noise (n, 6);
         std::vector<float> oL, oR;
-        SpectralHarmonizer::Params p; p.amount = 1.0f; p.numHarmonics = 8;
+        Polychromatic::Params p; p.amount = 1.0f; p.numHarmonics = 8;
         h.noteOn (1, 57, 1.0f);   // A3 = 220 Hz
         run (h, L, R, oL, oR, p, 512);
         // Measure energy within 15 Hz of k*220 vs total, 100..2000 Hz
@@ -128,7 +128,7 @@ int main()
         CHECK (in / tot > 0.9, "MIDI note A3 pulls energy onto its harmonics");
 
         // MPE: bend member channel by +1 semitone (48 range) -> 233 Hz
-        SpectralHarmonizer h2; h2.prepare (sr, 512);
+        Polychromatic h2; h2.prepare (sr, 512);
         p.mpe = true; p.numHarmonics = 1;
         h2.noteOn (2, 57, 1.0f); h2.pitchBend (2, 1.0f / 48.0f);
         run (h2, L, R, oL, oR, p, 512);
@@ -144,9 +144,9 @@ int main()
 
     // Custom scale: only D in the low octave, only A in the high one.
     {
-        SpectralHarmonizer::Params p; p.scale = GlitchCore::kCustomScaleIndex;
+        Polychromatic::Params p; p.scale = GlitchCore::kCustomScaleIndex;
         p.customMask = (1u << 2) | (1u << (12 + 9)); p.amount = 1.0f;
-        SpectralHarmonizer h; h.prepare (sr, 512);
+        Polychromatic h; h.prepare (sr, 512);
         const int n = 48000 * 2; auto L = noise (n, 7), R = noise (n, 8);
         std::vector<float> oL, oR; run (h, L, R, oL, oR, p, 512);
         const double frac = tonalFraction (oL, sr, 48000, (1u << 2) | (1u << 9), 0);

@@ -11,10 +11,10 @@ namespace GlitchCore
 {
 
 //==============================================================================
-// SpectralHarmonizer — STFT morph that pulls every bin's energy onto the
+// Polychromatic — STFT morph that pulls every bin's energy onto the
 // nearest target note, turning any input into tuned, ringing partials.
 // Pure C++ DSP, no JUCE dependency.
-// Place in: glitchcore/dsp/harmonizer/harmonizer.h
+// Place in: glitchcore/dsp/polychromatic/polychromatic.h
 //
 // Signal flow (per channel, per hop):
 //   last N input samples -> Hann -> FFT -> [ sieve residual  ]-> mix -> IFFT
@@ -37,7 +37,7 @@ namespace GlitchCore
 // No transient preservation by design: this is built for soundscapes.
 //==============================================================================
 
-class SpectralHarmonizer
+class Polychromatic
 {
 public:
     //==========================================================================
@@ -74,7 +74,7 @@ public:
     };
 
     //==========================================================================
-    SpectralHarmonizer();
+    Polychromatic();
 
     // Allocates for the largest FFT; switching size later never allocates.
     void prepare (double sampleRate, int maxBlockSize, FftSize size = FftSize::k4096);

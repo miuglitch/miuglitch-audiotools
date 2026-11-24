@@ -1,4 +1,4 @@
-#include "harmonizer.h"
+#include "polychromatic.h"
 #include <algorithm>
 
 namespace GlitchCore
@@ -11,13 +11,13 @@ static constexpr float kTwoPiH = 6.28318530717959f;
 // Construction / preparation
 //==============================================================================
 
-SpectralHarmonizer::SpectralHarmonizer()
+Polychromatic::Polychromatic()
 {
     fft2048_.prepare (kMaxFftOrder - 1);
     fft4096_.prepare (kMaxFftOrder);
 }
 
-void SpectralHarmonizer::prepare (double sampleRate, int maxBlockSize, FftSize size)
+void Polychromatic::prepare (double sampleRate, int maxBlockSize, FftSize size)
 {
     sampleRate_   = sampleRate > 0.0 ? sampleRate : 44100.0;
     maxBlockSize_ = maxBlockSize > 0 ? maxBlockSize : 512;
@@ -41,7 +41,7 @@ void SpectralHarmonizer::prepare (double sampleRate, int maxBlockSize, FftSize s
     setFftSize (size);
 }
 
-void SpectralHarmonizer::setFftSize (FftSize size)
+void Polychromatic::setFftSize (FftSize size)
 {
     fftSize_ = size;
     fftN_    = (size == FftSize::k2048) ? kMaxFftSize / 2 : kMaxFftSize;
@@ -64,7 +64,7 @@ void SpectralHarmonizer::setFftSize (FftSize size)
     reset();
 }
 
-void SpectralHarmonizer::reset()
+void Polychromatic::reset()
 {
     for (auto& c : chans_)
     {
@@ -81,7 +81,7 @@ void SpectralHarmonizer::reset()
     frameAmount_ = 0.0f;
 }
 
-double SpectralHarmonizer::getTailLengthSeconds (float sustain) const
+double Polychromatic::getTailLengthSeconds (float sustain) const
 {
     // Latency plus the longest partial release (see processFrame).
     const double releaseSec = 0.05 + 12.0 * std::pow ((double) sustain, 2.0);
@@ -92,7 +92,7 @@ double SpectralHarmonizer::getTailLengthSeconds (float sustain) const
 // MIDI
 //==============================================================================
 
-int SpectralHarmonizer::findVoice (int channel, int note) const
+int Polychromatic::findVoice (int channel, int note) const
 {
     for (int i = 0; i < kMaxVoices; ++i)
         if (voices_[(size_t) i].active && voices_[(size_t) i].keyDown
@@ -101,7 +101,7 @@ int SpectralHarmonizer::findVoice (int channel, int note) const
     return -1;
 }
 
-int SpectralHarmonizer::allocateVoice()
+int Polychromatic::allocateVoice()
 {
     for (int i = 0; i < kMaxVoices; ++i)
         if (! voices_[(size_t) i].active) return i;
@@ -122,7 +122,7 @@ int SpectralHarmonizer::allocateVoice()
     return best;
 }
 
-void SpectralHarmonizer::noteOn (int channel, int note, float velocity)
+void Polychromatic::noteOn (int channel, int note, float velocity)
 {
     if (velocity <= 0.0f) { noteOff (channel, note); return; }
     channel = std::clamp (channel, 1, 16);
@@ -158,37 +158,37 @@ void SpectralHarmonizer::noteOn (int channel, int note, float velocity)
     }
 }
 
-void SpectralHarmonizer::releaseVoice (Voice& v)
+void Polychromatic::releaseVoice (Voice& v)
 {
     v.keyDown = false;
     if (! latch_ && ! sustainPedal_)
         v.active = false;
 }
 
-void SpectralHarmonizer::noteOff (int channel, int note)
+void Polychromatic::noteOff (int channel, int note)
 {
     channel = std::clamp (channel, 1, 16);
     const int idx = findVoice (channel, note);
     if (idx >= 0) releaseVoice (voices_[(size_t) idx]);
 }
 
-void SpectralHarmonizer::pitchBend (int channel, float bend)
+void Polychromatic::pitchBend (int channel, float bend)
 {
     channelBend_[(size_t) std::clamp (channel, 1, 16)] = std::clamp (bend, -1.0f, 1.0f);
 }
 
-void SpectralHarmonizer::channelPressure (int channel, float pressure)
+void Polychromatic::channelPressure (int channel, float pressure)
 {
     channelPressure_[(size_t) std::clamp (channel, 1, 16)] = std::clamp (pressure, 0.0f, 1.0f);
 }
 
-void SpectralHarmonizer::polyPressure (int channel, int note, float pressure)
+void Polychromatic::polyPressure (int channel, int note, float pressure)
 {
     const int idx = findVoice (std::clamp (channel, 1, 16), note);
     if (idx >= 0) voices_[(size_t) idx].pressure = std::clamp (pressure, 0.0f, 1.0f);
 }
 
-void SpectralHarmonizer::controller (int channel, int cc, float value)
+void Polychromatic::controller (int channel, int cc, float value)
 {
     channel = std::clamp (channel, 1, 16);
     if (cc == 74)
@@ -208,26 +208,26 @@ void SpectralHarmonizer::controller (int channel, int cc, float value)
     }
 }
 
-void SpectralHarmonizer::allNotesOff()
+void Polychromatic::allNotesOff()
 {
     for (auto& v : voices_) { v.active = false; v.keyDown = false; }
     sustainPedal_ = false;
 }
 
-bool SpectralHarmonizer::hasActiveNotes() const
+bool Polychromatic::hasActiveNotes() const
 {
     for (const auto& v : voices_) if (v.active) return true;
     return false;
 }
 
-int SpectralHarmonizer::getActiveNoteCount() const
+int Polychromatic::getActiveNoteCount() const
 {
     int n = 0;
     for (const auto& v : voices_) if (v.active) ++n;
     return n;
 }
 
-void SpectralHarmonizer::setLatch (bool shouldLatch)
+void Polychromatic::setLatch (bool shouldLatch)
 {
     if (latch_ && ! shouldLatch)
         for (auto& v : voices_)
@@ -235,7 +235,7 @@ void SpectralHarmonizer::setLatch (bool shouldLatch)
     latch_ = shouldLatch;
 }
 
-float SpectralHarmonizer::noteFrequency (const Voice& v, const Params& p) const
+float Polychromatic::noteFrequency (const Voice& v, const Params& p) const
 {
     float semis = (float) v.note;
     if (p.mpe)
@@ -255,7 +255,7 @@ float SpectralHarmonizer::noteFrequency (const Voice& v, const Params& p) const
 // Targets
 //==============================================================================
 
-void SpectralHarmonizer::buildTargets (const Params& p)
+void Polychromatic::buildTargets (const Params& p)
 {
     numTargets_ = 0;
     const float nyq   = (float) sampleRate_ * 0.5f;
@@ -332,7 +332,7 @@ void SpectralHarmonizer::buildTargets (const Params& p)
                [] (const Target& a, const Target& b) { return a.freq < b.freq; });
 }
 
-void SpectralHarmonizer::updateFrameAmount (float target)
+void Polychromatic::updateFrameAmount (float target)
 {
     target = std::clamp (target, 0.0f, 1.0f);
     // ~50 ms glide at hop 1024 / 48k, snaps to exactly 0 so the null is reachable.
@@ -344,7 +344,7 @@ void SpectralHarmonizer::updateFrameAmount (float target)
 // Hann main lobe of a zero-phase (centred) frame, x in bins from the peak.
 //==============================================================================
 
-float SpectralHarmonizer::lobeKernel (float x)
+float Polychromatic::lobeKernel (float x)
 {
     auto sinc = [] (float t)
     {
@@ -358,7 +358,7 @@ float SpectralHarmonizer::lobeKernel (float x)
 // One STFT frame
 //==============================================================================
 
-void SpectralHarmonizer::processFrame (int channel)
+void Polychromatic::processFrame (int channel)
 {
     auto& c        = chans_[(size_t) channel];
     const int N    = fftN_;
@@ -496,7 +496,7 @@ void SpectralHarmonizer::processFrame (int channel)
 // Process
 //==============================================================================
 
-void SpectralHarmonizer::process (const float* const* inputChannels,
+void Polychromatic::process (const float* const* inputChannels,
                                   float* const*       outputChannels,
                                   int                 numChannels,
                                   int                 numSamples,

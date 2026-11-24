@@ -1,4 +1,4 @@
-# Spectral Harmonizer — JUCE wrapper around GlitchCore::SpectralHarmonizer.
+# Polychromatic — JUCE wrapper around GlitchCore::Polychromatic.
 # Built from the glitchcore root with -DGLITCHCORE_BUILD_PLUGINS=ON
 # and -DJUCE_PATH=<path to JUCE>.
 
@@ -12,12 +12,12 @@ endif()
 
 option(GLITCHCORE_COPY_PLUGINS "Copy built plugins to the system plugin folder" OFF)
 
-juce_add_plugin(SpectralHarmonizer
+juce_add_plugin(Polychromatic
     COMPANY_NAME             "MIUGLITCH"
     PLUGIN_MANUFACTURER_CODE Miug
-    PLUGIN_CODE              SHRM
+    PLUGIN_CODE              Plch
     FORMATS                  VST3
-    PRODUCT_NAME             "Spectral Harmonizer"
+    PRODUCT_NAME             "Polychromatic"
     IS_SYNTH                 FALSE
     NEEDS_MIDI_INPUT         TRUE
     NEEDS_MIDI_OUTPUT        FALSE
@@ -28,24 +28,24 @@ juce_add_plugin(SpectralHarmonizer
     COPY_PLUGIN_AFTER_BUILD  ${GLITCHCORE_COPY_PLUGINS}
 )
 
-target_sources(SpectralHarmonizer PRIVATE
+target_sources(Polychromatic PRIVATE
     source/PluginProcessor.cpp
     source/PluginProcessor.h
     source/PluginEditor.cpp
     source/PluginEditor.h
 )
 
-target_include_directories(SpectralHarmonizer PRIVATE source)
+target_include_directories(Polychromatic PRIVATE source)
 
-target_compile_features(SpectralHarmonizer PRIVATE cxx_std_17)
+target_compile_features(Polychromatic PRIVATE cxx_std_17)
 
-target_compile_definitions(SpectralHarmonizer PUBLIC
+target_compile_definitions(Polychromatic PUBLIC
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
 )
 
-target_link_libraries(SpectralHarmonizer
+target_link_libraries(Polychromatic
     PRIVATE
         GlitchCore
         juce::juce_audio_processors

@@ -31,12 +31,12 @@ private:
 };
 
 //==============================================================================
-class SpectralHarmonizerAudioProcessorEditor : public juce::AudioProcessorEditor,
+class PolychromaticAudioProcessorEditor : public juce::AudioProcessorEditor,
                                                private juce::Timer
 {
 public:
-    explicit SpectralHarmonizerAudioProcessorEditor (SpectralHarmonizerAudioProcessor&);
-    ~SpectralHarmonizerAudioProcessorEditor() override;
+    explicit PolychromaticAudioProcessorEditor (PolychromaticAudioProcessor&);
+    ~PolychromaticAudioProcessorEditor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -65,7 +65,7 @@ private:
     void setupSlider (LabelledSlider&, const juce::String& paramID, const juce::String& text, bool rotary);
     void setupCombo  (LabelledCombo&,  const juce::String& paramID, const juce::String& text);
 
-    SpectralHarmonizerAudioProcessor& processor_;
+    PolychromaticAudioProcessor& processor_;
 
     LabelledSlider amount_, sustain_, harmonics_, bendRange_, mpeBendRange_;
     LabelledCombo  root_, scale_, source_, midiTargets_, fftSize_;
@@ -78,5 +78,5 @@ private:
     bool customShown_ = false;
     int  lastRealScale_ = 0;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpectralHarmonizerAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolychromaticAudioProcessorEditor)
 };

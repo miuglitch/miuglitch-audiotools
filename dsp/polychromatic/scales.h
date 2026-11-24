@@ -6,10 +6,10 @@ namespace GlitchCore
 {
 
 //==============================================================================
-// Scale table for the Spectral Harmonizer's root + scale selector.
+// Scale table for Polychromatic's root + scale selector.
 // Names and intervals follow the scale list in Ableton Live's scale chooser,
 // in the same order. "Custom" is handled separately (24-note mask, see
-// SpectralHarmonizer::Params::customMask).
+// Polychromatic::Params::customMask).
 //
 // Each mask is a 12-bit pitch-class set relative to the root:
 // bit n set => the note n semitones above the root is in the scale.

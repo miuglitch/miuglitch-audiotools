@@ -1,10 +1,10 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "dsp/harmonizer/harmonizer.h"
+#include "dsp/polychromatic/polychromatic.h"
 
 //==============================================================================
-// SpectralHarmonizerAudioProcessor
-// Place in: glitchcore/plugins/harmonizer/source/PluginProcessor.h
+// PolychromaticAudioProcessor
+// Place in: glitchcore/plugins/polychromatic/source/PluginProcessor.h
 //==============================================================================
 
 namespace ParamID
@@ -23,11 +23,11 @@ namespace ParamID
     inline const juce::String FftSize      = "fft_size";
 }
 
-class SpectralHarmonizerAudioProcessor : public juce::AudioProcessor
+class PolychromaticAudioProcessor : public juce::AudioProcessor
 {
 public:
-    SpectralHarmonizerAudioProcessor();
-    ~SpectralHarmonizerAudioProcessor() override = default;
+    PolychromaticAudioProcessor();
+    ~PolychromaticAudioProcessor() override = default;
 
     void prepareToPlay  (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -42,7 +42,7 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    const juce::String getName() const override { return "Spectral Harmonizer"; }
+    const juce::String getName() const override { return "Polychromatic"; }
     bool   acceptsMidi()  const override { return true; }
     bool   producesMidi() const override { return false; }
     bool   isMidiEffect() const override { return false; }
@@ -69,10 +69,10 @@ public:
 
 private:
     void handleMidi (const juce::MidiMessage&);
-    GlitchCore::SpectralHarmonizer::Params buildParams() const;
-    GlitchCore::SpectralHarmonizer::FftSize requestedFftSize() const;
+    GlitchCore::Polychromatic::Params buildParams() const;
+    GlitchCore::Polychromatic::FftSize requestedFftSize() const;
 
-    GlitchCore::SpectralHarmonizer harmonizer_;
+    GlitchCore::Polychromatic engine_;
 
     std::atomic<float>* pAmount       = nullptr;
     std::atomic<float>* pSustain      = nullptr;
@@ -91,5 +91,5 @@ private:
     std::atomic<bool> followingMidi_ { false };
     std::atomic<int>  heldNotes_     { 0 };
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (SpectralHarmonizerAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolychromaticAudioProcessor)
 };
