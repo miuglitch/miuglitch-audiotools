@@ -2,6 +2,9 @@
 #include <cmath>
 #include <random>
 
+namespace GlitchCore
+{
+
 Disintegrate::Disintegrate()
     : sampleRate(44100.0)
     , numChannels(2)
@@ -163,3 +166,5 @@ float Disintegrate::amountToProbability(float amount) const
 {
     return std::pow(amount, 4.5f);
 }
+
+} // namespace GlitchCore

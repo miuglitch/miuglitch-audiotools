@@ -1,6 +1,6 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
-#include "Disintegrate.h"
+#include "dsp/disintegrate/disintegrate.h"
 
 class DisintegrateProcessor : public juce::AudioProcessor
 {
@@ -40,7 +40,7 @@ public:
 private:
     juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    Disintegrate disintegrate;
+    GlitchCore::Disintegrate disintegrate;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DisintegrateProcessor)
 };

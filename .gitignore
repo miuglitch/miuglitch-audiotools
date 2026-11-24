@@ -1,4 +1,19 @@
+# Build output
 build/
+out/
+cmake-build-*/
+
+# IDEs
 .vs/
 .vscode/
+.idea/
 *.user
+
+# MSVC by-products
+*.exp
+*.lib
+*.pdb
+
+# OS
+.DS_Store
+Thumbs.db
