@@ -2,7 +2,7 @@
 
 #include <juce_core/juce_core.h>
 
-// Clip time display (Docs/Requirements.md):
+// Clip time display (docs/arack/Requirements.md):
 //   under 10 s   -> milliseconds with 2 decimals   "9876.54"      unit "MS"
 //   under 1 min  -> seconds:milliseconds           "45:120"       unit "S:MS"
 //   1 min and up -> minutes:seconds:milliseconds   "02:45:644"    unit "M:S:MS"

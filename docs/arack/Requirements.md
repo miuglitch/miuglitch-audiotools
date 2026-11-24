@@ -27,9 +27,9 @@ Collected from Magnus, November 2026. Add to this as decisions are made.
 - **Right of the slot list:** a panel that shows the selected plug-in's (or built-in process's)
   interface.
 - **Underneath:** a wide automation area with a lane for **every parameter that's been clicked**.
-- Look and feel: see `DesignLanguage.md`. Mockups: `Mockups/arack-1…5`.
+- Look and feel: see `DesignLanguage.md`. Mockups: `mockups/arack-1…5`.
 
-### Chosen layout: mockup 4 (Compact), revised as `Mockups/arack-4b-compact`
+### Chosen layout: mockup 4 (Compact), revised as `mockups/arack-4b-compact`
 
 Header:
 - No tempo readout. Instead, the **total clip length in milliseconds** (the ARA region ARAck

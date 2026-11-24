@@ -6,12 +6,13 @@ project(MiuglitchAudioTools VERSION 0.2.0 LANGUAGES C CXX)
 #   plugins/  -> one JUCE plugin per folder, each linking GlitchCore
 #
 # Typical Windows configure:
-#   cmake -B build -DJUCE_PATH=D:/SDKs/JUCE
+#   cmake -B build -DJUCE_PATH=D:/SDKs/JUCE -DARA_SDK_PATH=D:/SDKs/ARA_SDK
 #   cmake --build build --config Release
 
 option(MIUGLITCH_BUILD_PLUGINS "Build the JUCE plugins in plugins/" ON)
 option(MIUGLITCH_BUILD_TESTS   "Build the offline DSP tests in tests/" OFF)
 option(MIUGLITCH_COPY_PLUGINS  "Copy built plugins to the system plugin folder" ON)
+set(ARA_SDK_PATH "" CACHE PATH "Celemony ARA SDK, e.g. D:/SDKs/ARA_SDK (needed for ARAck)")
 
 set(MIUGLITCH_JUCE_VERSION "8.0.13" CACHE STRING "JUCE tag to download when JUCE_PATH is empty")
 set(JUCE_PATH "" CACHE PATH "Local JUCE checkout, e.g. D:/SDKs/JUCE (empty = download JUCE ${MIUGLITCH_JUCE_VERSION})")
@@ -41,4 +42,10 @@ if (MIUGLITCH_BUILD_PLUGINS)
     add_subdirectory(plugins/smudge)
     add_subdirectory(plugins/polychromatic)
     add_subdirectory(plugins/particulate)
+
+    if (ARA_SDK_PATH)
+        add_subdirectory(plugins/arack)
+    else()
+        message(STATUS "Skipping ARAck: set ARA_SDK_PATH to the Celemony ARA SDK to build it")
+    endif()
 endif()

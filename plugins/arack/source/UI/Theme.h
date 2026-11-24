@@ -2,7 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-// Colours and type from Docs/DesignLanguage.md (dark theme, as in mockup 4b).
+// Colours and type from docs/arack/DesignLanguage.md (dark theme, as in mockup 4b).
 namespace Theme
 {
     using juce::Colour;

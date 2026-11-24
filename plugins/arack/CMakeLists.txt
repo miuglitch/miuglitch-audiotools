@@ -1,44 +1,43 @@
-cmake_minimum_required(VERSION 3.22)
+# ARAck: an ARA2 VST3 plug-in that hosts a chain of up to 12 VST3 plug-ins.
+# Released under Type 2 Studio (not MIUGLITCH), so it keeps its own
+# juce_add_plugin call and codes instead of miuglitch_add_plugin().
+# Needs the Celemony ARA SDK: -DARA_SDK_PATH=D:/SDKs/ARA_SDK
 
-project(ARAck VERSION 0.1.0 LANGUAGES C CXX)
+juce_set_ara_sdk_path("${ARA_SDK_PATH}")
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-# External SDKs live outside the (Dropbox-synced) project folder.
-set(ARACK_JUCE_DIR    "C:/JUCE"         CACHE PATH "Path to the JUCE source tree")
-set(ARACK_ARA_SDK_DIR "C:/SDKs/ARA_SDK" CACHE PATH "Path to the Celemony ARA SDK")
-set(ARACK_VST3_INSTALL_DIR "C:/Program Files/Common Files/VST3/ARAck" CACHE PATH "Where each VST3 build is installed")
-
-add_subdirectory("${ARACK_JUCE_DIR}" "${CMAKE_BINARY_DIR}/JUCE" EXCLUDE_FROM_ALL)
-juce_set_ara_sdk_path("${ARACK_ARA_SDK_DIR}")
+if (WIN32)
+    set(ARACK_VST3_COPY_DIR "C:/Program Files/Common Files/VST3/ARAck" CACHE PATH "Where each ARAck VST3 build is installed")
+    set(arack_copy_dir VST3_COPY_DIR "${ARACK_VST3_COPY_DIR}")
+endif()
 
 juce_add_plugin(ARAck
-    PRODUCT_NAME "ARAck"
-    COMPANY_NAME "Type 2 Studio"
-    BUNDLE_ID "com.type2studio.arack"
-    PLUGIN_MANUFACTURER_CODE Typ2
-    PLUGIN_CODE Arck
-    FORMATS VST3 Standalone
-    IS_SYNTH FALSE
-    NEEDS_MIDI_INPUT FALSE
-    NEEDS_MIDI_OUTPUT FALSE
-    IS_ARA_EFFECT TRUE
-    ARA_TRANSFORMATION_FLAGS kARAPlaybackTransformationNoChanges
-    VST3_CATEGORIES Fx Tools
+    PRODUCT_NAME                "ARAck"
+    COMPANY_NAME                "Type 2 Studio"
+    BUNDLE_ID                   "com.type2studio.arack"
+    PLUGIN_MANUFACTURER_CODE    Typ2
+    PLUGIN_CODE                 Arck
+    FORMATS                     VST3 Standalone
+    IS_SYNTH                    FALSE
+    NEEDS_MIDI_INPUT            FALSE
+    NEEDS_MIDI_OUTPUT           FALSE
+    IS_ARA_EFFECT               TRUE
+    ARA_TRANSFORMATION_FLAGS    kARAPlaybackTransformationNoChanges
+    VST3_CATEGORIES             Fx Tools
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
-    COPY_PLUGIN_AFTER_BUILD TRUE
-    VST3_COPY_DIR "${ARACK_VST3_INSTALL_DIR}")
+    COPY_PLUGIN_AFTER_BUILD     ${MIUGLITCH_COPY_PLUGINS}
+    ${arack_copy_dir})
 
-juce_add_binary_data(ARAckData SOURCES Resources/miu-logo.svg)
+juce_add_binary_data(ARAckData SOURCES resources/miu-logo.svg)
 
 target_sources(ARAck PRIVATE
-    Source/ARADocument.cpp
-    Source/ChainEngine.cpp
-    Source/PluginProcessor.cpp
-    Source/UI/PluginEditor.cpp
-    Source/UI/AutomationPanel.cpp
-    Source/UI/ChainPanel.cpp)
+    source/ARADocument.cpp
+    source/ChainEngine.cpp
+    source/PluginProcessor.cpp
+    source/UI/PluginEditor.cpp
+    source/UI/AutomationPanel.cpp
+    source/UI/ChainPanel.cpp)
+
+target_compile_features(ARAck PRIVATE cxx_std_20)
 
 target_compile_definitions(ARAck PUBLIC
     JUCE_PLUGINHOST_VST3=1
@@ -57,18 +56,3 @@ target_link_libraries(ARAck
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
-
-# Finished binaries are also copied into the project folder (Dropbox) under Bin/<Config>.
-# Intermediate build files stay in the binary dir outside Dropbox.
-set(ARACK_OUTPUT_DIR "${CMAKE_SOURCE_DIR}/Bin" CACHE PATH "Where finished binaries are copied")
-
-add_custom_command(TARGET ARAck_VST3 POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_directory
-            "$<TARGET_FILE_DIR:ARAck_VST3>/../.."
-            "${ARACK_OUTPUT_DIR}/$<CONFIG>/ARAck.vst3"
-    VERBATIM)
-
-add_custom_command(TARGET ARAck_Standalone POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${ARACK_OUTPUT_DIR}/$<CONFIG>"
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:ARAck_Standalone>" "${ARACK_OUTPUT_DIR}/$<CONFIG>/"
-    VERBATIM)
