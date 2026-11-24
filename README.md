@@ -10,8 +10,10 @@ own VST3.
 | Smudge | `plugins/smudge` | `SMUD` | VST3 | free, WIP |
 | Polychromatic | `plugins/polychromatic` | `Plch` | VST3 (MIDI/MPE in) | in progress |
 | Particulate | `plugins/particulate` | `Part` | VST3, Standalone | template (gain only) |
+| ARAck | `plugins/arack` | `Arck` (Type 2 Studio, `Typ2`) | ARA2 VST3, Standalone | prototype |
 
-Manufacturer code is `Miug` for all of them. **Never change a plugin code after
+Manufacturer code is `Miug` for all of them except ARAck, which ships under
+Type 2 Studio (`Typ2`) and installs to `VST3/ARAck/`. ARAck needs the Celemony ARA SDK. **Never change a plugin code after
 release**: hosts use it to find the plugin in saved projects.
 
 ## Layout
@@ -40,7 +42,7 @@ Rules of thumb:
 Needs CMake 3.22+ and a C++17 compiler (Visual Studio 2022 on Windows).
 
 ```
-cmake -B build -DJUCE_PATH=D:/SDKs/JUCE
+cmake -B build -DJUCE_PATH=D:/SDKs/JUCE -DARA_SDK_PATH=D:/SDKs/ARA_SDK
 cmake --build build --config Release
 ```
 
@@ -54,11 +56,13 @@ Options:
 | `JUCE_PATH` | empty | Local JUCE checkout |
 | `MIUGLITCH_BUILD_PLUGINS` | ON | Build the JUCE plugins |
 | `MIUGLITCH_COPY_PLUGINS` | ON | Copy each built plugin to the system plugin folder |
+| `ARA_SDK_PATH` | empty | Celemony ARA SDK; ARAck is skipped without it |
 | `MIUGLITCH_BUILD_TESTS` | OFF | Build `tests/`; run with `ctest --test-dir build -C Release` |
 
 ## History
 
 This repo merges `glitchcore`, `smudge-vst` and `disintegrate-vst` with their
-full git history (`git log --follow` works on every file), plus Polychromatic
+full git history (`git log --follow` works on every file), plus ARAck from
+`arack` (also with history; its Docs and Mockups are in `docs/arack`), plus Polychromatic
 from glitchcore's `spectral-harmonizer` branch and Particulate from a local,
 never-committed folder.

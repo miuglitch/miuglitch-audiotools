@@ -1,0 +1,81 @@
+<!doctype html><html><head><meta charset="utf-8"><title>ARAck mockup 3 · Pads</title>
+<link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="base.css">
+<style>
+.main{flex:1;display:flex;min-height:0;gap:0}
+.slots{width:330px;display:flex;flex-direction:column;gap:6px;padding:12px;background:var(--ctrl-bg);border-right:6px solid var(--frame)}
+.slot{display:flex;align-items:center;gap:10px;height:44px;padding-right:10px;background:var(--tog-bg);border:1px solid var(--tog-bd);border-radius:6px;overflow:hidden}
+.pad{width:44px;height:44px;margin:-1px 0 -1px -1px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;border-radius:6px 0 0 6px;background:#d0cec9;color:#8a8a86;border-right:1px solid var(--tog-bd)}
+.slot.on .pad{background:#151515;color:#fff}
+.slot.on.ara .pad{background:var(--orange)}
+.slot .nm{flex:1;min-width:0;font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot:not(.on) .nm{color:var(--muted)}
+.slot .lt{font-size:12px;color:var(--th-sub)}
+.slot.cur{border-color:#151515;box-shadow:0 0 0 2px #151515}
+.slot.empty{border-style:dashed;background:transparent}
+.slot.empty .pad{background:transparent;color:var(--muted)}
+.legend{margin-top:auto;font-size:11px;color:var(--th-sub);line-height:1.5}
+.view{flex:1;display:flex;min-width:0}
+.pcol{flex:1;display:flex;flex-direction:column;min-width:0}
+.plug{flex:1;margin:14px;border:1px solid var(--tog-bd);background:var(--panel);position:relative}
+.plug .canvas{position:absolute;inset:0}
+.params{width:290px;border-left:6px solid var(--frame);display:flex;flex-direction:column}
+.prm{display:flex;align-items:center;gap:10px;padding:0 14px;height:40px;border-bottom:1px solid var(--row-line)}
+.prm:nth-child(odd){background:var(--band-a)}
+.prm span{flex:1;font-size:13.5px}
+.prm b{font-size:14px;font-weight:400}
+.prm .ad{width:12px;height:12px;border-radius:3px;border:1px solid var(--tog-bd)}
+.prm.aut .ad{background:var(--blue);border-color:var(--blue)}
+.prm.aut span{font-weight:700}
+.auto{height:300px;border-top:6px solid var(--frame);display:flex;flex-direction:column;flex-shrink:0}
+.chips{display:flex;gap:6px;padding:8px 14px;background:var(--ctrl-bg);border-bottom:1px solid var(--row-line);align-items:center}
+.chip{font:600 11.5px var(--font);letter-spacing:.04em;padding:6px 10px;border-radius:6px;color:#fff}
+.lanes{flex:1;display:flex;flex-direction:column}
+.lane{flex:1;position:relative;border-bottom:1px solid var(--row-line)}
+.lane:nth-child(odd){background:var(--band-a)}
+.lane .tag{position:absolute;left:10px;top:6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;z-index:2}
+</style></head><body>
+<div class="app">
+ <div class="hd">
+  <div class="logo"><div class="logo-svg"></div><div class="logo-sub">ARACK</div></div>
+  <div class="iblk"><div class="lbl">Tempo</div><div class="ro or">128.00<small>BPM</small></div></div>
+  <div class="iblk"><div class="lbl">Latency</div><div class="ro" id="tl"></div></div>
+  <div class="iblk"><div class="lbl">Slot</div><div class="ro">03<small>/ 12</small></div></div>
+  <div class="iblk"><div class="lbl">Plug-in</div><div class="ro" style="font-size:24px">Linear Phase EQ</div></div>
+  <div class="grow"></div>
+  <div class="iblk"><div class="lbl">Chain preset</div><div class="sel" style="width:190px">Vocal Chain A</div></div>
+ </div>
+ <div class="main">
+  <div class="slots" id="slots"></div>
+  <div class="view">
+   <div class="pcol">
+    <div class="ph k-blue"><span class="t">Plug-in</span><span class="s">VST3 · 42.67 ms</span><span class="grow"></span><span class="btn">Float</span><span class="btn pri">Disable</span></div>
+    <div class="plug"><div class="canvas" id="eq"></div></div>
+   </div>
+   <div class="params">
+    <div class="ph"><span class="t">Parameters</span><span class="grow"></span><span class="s">click = automate</span></div>
+    <div id="params"></div>
+   </div>
+  </div>
+ </div>
+ <div class="auto">
+  <div class="chips" id="chips"></div>
+  <div class="ruler" id="ruler"></div>
+  <div class="lanes" id="lanes"></div>
+ </div>
+</div>
+<script src="common.js"></script>
+<script>
+header(document);
+document.getElementById('tl').innerHTML=totalLatency()+'<small>MS</small>';
+document.getElementById('slots').innerHTML=SLOTS.map((s,i)=>{
+  const n=String(i+1).padStart(2,'0');
+  if(!s) return `<div class="slot empty"><div class="pad">${n}</div><div class="nm" style="color:var(--muted);font-weight:400">Load plug-in…</div></div>`;
+  return `<div class="slot ${s.on?'on':''} ${s.ara?'ara':''} ${i==2?'cur':''}"><div class="pad">${n}</div><div class="nm">${s.n}</div><span class="lt num">${s.on?fmtLat(s.lat):'off'}</span></div>`;
+}).join('')+'<div class="legend">Tap the number pad to enable or disable a slot. Disabled slots are removed from processing and add no latency. Orange = ARA plug-in.</div>';
+document.getElementById('eq').innerHTML=eqView(900,500,false);
+const P=[['Output Gain','0.0 dB'],['Band 1 Freq','120 Hz'],['Band 1 Gain','+4.0 dB'],['Band 2 Freq','650 Hz'],['Band 3 Freq','2.40 kHz',1],['Band 3 Gain','−2.4 dB',1],['Band 3 Q','1.20'],['Band 4 Freq','9.10 kHz'],['Band 4 Gain','+2.8 dB'],['Phase Mode','Linear'],['Mix','100 %']];
+document.getElementById('params').innerHTML=P.map(p=>`<div class="prm ${p[2]?'aut':''}"><div class="ad"></div><span>${p[0]}</span><b class="num">${p[1]}</b></div>`).join('');
+document.getElementById('chips').innerHTML='<span class="t" style="font-size:11px;font-weight:600;letter-spacing:.08em;margin-right:6px">AUTOMATION</span>'+LANES.map(l=>`<span class="chip" style="background:${KCOL[l.k]}">${l.p} ✕</span>`).join('');
+ruler(document.getElementById('ruler'));
+document.getElementById('lanes').innerHTML=LANES.map(l=>`<div class="lane"><span class="tag" style="color:${KCOL[l.k]}">${l.p.split(' · ')[1]} · ${l.v}</span>${laneSVG(l,1600,52,{noDots:true})}</div>`).join('');
+</script></body></html>
