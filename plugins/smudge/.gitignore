@@ -1,0 +1,4 @@
+build/
+*.exp
+*.lib
+*.pdb
