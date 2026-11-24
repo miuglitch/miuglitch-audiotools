@@ -22,16 +22,14 @@ All MIDI notes 0-127 work, including bends past the ends of the range.
 
 ## Build
 
-From the glitchcore root:
+Polychromatic builds with the rest of the repo; see the root README.
+To run its offline DSP checks:
 
 ```
-cmake -S . -B build -DGLITCHCORE_BUILD_PLUGINS=ON -DJUCE_PATH=C:/JUCE
+cmake -S . -B build -DMIUGLITCH_BUILD_TESTS=ON -DMIUGLITCH_BUILD_PLUGINS=OFF
 cmake --build build --config Release
+ctest --test-dir build -C Release
 ```
-
-Add `-DGLITCHCORE_COPY_PLUGINS=ON` to copy the VST3 to the system folder after
-building, and `-DGLITCHCORE_BUILD_TESTS=ON` then `ctest` to run the offline DSP
-checks in `tests/polychromatic_test.cpp`.
 
 In Ableton Live, MIDI reaches an audio effect by setting a MIDI track's
 "MIDI To" to the track holding the plugin, then choosing "Polychromatic".

@@ -8,6 +8,9 @@
 // Layer 2 (Jitter): sparse discrete glitches, 10-50ms duration, up to 10/sec
 // Supports any number of channels. Zero latency. Sample rate agnostic.
 
+namespace GlitchCore
+{
+
 class Disintegrate
 {
 public:
@@ -52,3 +55,5 @@ private:
     std::mt19937 rng;
     std::uniform_real_distribution<float> dist;
 };
+
+} // namespace GlitchCore

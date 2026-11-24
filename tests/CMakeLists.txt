@@ -1,0 +1,3 @@
+add_executable(polychromatic_test polychromatic_test.cpp)
+target_link_libraries(polychromatic_test PRIVATE GlitchCore)
+add_test(NAME polychromatic_test COMMAND polychromatic_test)
