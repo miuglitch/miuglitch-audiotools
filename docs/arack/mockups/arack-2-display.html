@@ -1,0 +1,78 @@
+<!doctype html><html><head><meta charset="utf-8"><title>ARAck mockup 2 · Display (dark)</title>
+<link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="base.css">
+<style>
+.main{flex:1;display:flex;min-height:0}
+.slots{width:360px;display:flex;flex-direction:column;border-right:6px solid var(--frame)}
+.slot{display:grid;grid-template-columns:26px 1fr 80px;align-items:center;gap:12px;padding:0 14px;height:44px;border-bottom:1px solid var(--row-line);position:relative}
+.slot .nm b{font-weight:600;font-size:14.5px}
+.slot .nm i{font-style:normal;font-size:11px;color:var(--th-sub);margin-left:6px}
+.slot .bar{position:absolute;left:52px;right:92px;bottom:6px;height:2px;background:var(--row-line)}
+.slot .bar u{display:block;height:2px;background:var(--orange)}
+.slot.off .nm b{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px}
+.slot.cur{background:#1a1a1a;box-shadow:inset 0 0 0 1px #ff7a45}
+.slot .ix{position:absolute;left:-1px}
+.slot.empty .nm b{color:var(--muted);font-weight:400}
+.view{flex:1;display:flex;flex-direction:column;min-width:0}
+.plug{flex:1;margin:0;position:relative;background:#0a0a0a}
+.plug .canvas{position:absolute;inset:16px;border:1px solid #262626}
+.auto{height:340px;border-top:6px solid var(--frame);display:flex;flex-shrink:0}
+.lhcol{width:360px;border-right:6px solid var(--frame);display:flex;flex-direction:column}
+.lhcol .lh{flex:1;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--row-line)}
+.lhcol .lh .dot{width:10px;height:10px;border-radius:2px}
+.lhcol .lh b{font-weight:600;font-size:13.5px;flex:1}
+.lhcol .lh .v{font-size:15px}
+.lhcol .region{height:56px;flex:none;color:var(--th-sub);font-size:12px}
+.tl{flex:1;display:flex;flex-direction:column;min-width:0}
+.wave{height:56px;border-bottom:1px solid var(--row-line);position:relative;background:#111}
+.wave .rg{position:absolute;left:4%;right:22%;top:6px;bottom:6px;border:1px solid #3b3b3b;border-radius:3px;background:#161616}
+.wave .rg span{position:absolute;left:6px;top:3px;font-size:10.5px;font-weight:600;letter-spacing:.06em;color:#ff7a45;z-index:2}
+.lane{flex:1;border-bottom:1px solid var(--row-line);position:relative}
+</style></head><body class="dark">
+<div class="app">
+ <div class="hd">
+  <div class="logo"><div class="logo-svg"></div><div class="logo-sub">ARACK</div></div>
+  <div class="iblk"><div class="lbl">Host tempo</div><div class="ro or">128.00<small>BPM</small></div></div>
+  <div class="iblk"><div class="lbl">Total latency</div><div class="ro" id="tl"></div></div>
+  <div class="iblk"><div class="lbl">Active slots</div><div class="ro">6<small>/ 12</small></div></div>
+  <div class="iblk"><div class="lbl">Host</div><div class="ro" style="font-size:20px">Ableton Live 13 · ARA2</div></div>
+  <div class="grow"></div>
+  <div class="iblk" style="flex-direction:row;align-items:center;gap:6px"><span class="btn hd-btn">Dark</span><span class="btn hd-btn">Save</span><span class="btn hd-btn">Load</span></div>
+ </div>
+ <div class="main">
+  <div class="slots">
+   <div class="ph"><span class="t">Chain</span><span class="grow"></span><span class="s">drag to reorder</span></div>
+   <div id="slots"></div>
+  </div>
+  <div class="view">
+   <div class="ph k-or"><span class="t">02 · Pitch Editor</span><span class="badge b-or">ARA2</span><span class="s">Lead Vox · Take 3 · bars 17–32</span><span class="grow"></span><span class="btn">Native UI</span><span class="btn">Float</span><span class="btn on">Enabled</span></div>
+   <div class="plug"><div class="canvas" id="pv"></div></div>
+  </div>
+ </div>
+ <div class="auto">
+  <div class="lhcol">
+   <div class="ph"><span class="t">Automation</span><span class="grow"></span><span class="s">click a parameter to add</span></div>
+   <div class="lh region"><span>ARA REGION</span></div>
+   <div id="lh" style="flex:1;display:flex;flex-direction:column"></div>
+  </div>
+  <div class="tl">
+   <div class="ruler" id="ruler" style="height:44px;border-bottom:3px solid var(--th-line)"></div>
+   <div class="wave"><div class="rg"><span>LEAD VOX · TAKE 3</span><div id="wv" style="position:absolute;inset:14px 4px 2px"></div></div></div>
+   <div id="lanes" style="flex:1;display:flex;flex-direction:column"></div>
+  </div>
+ </div>
+</div>
+<script src="common.js"></script>
+<script>
+header(document);
+document.getElementById('tl').innerHTML=totalLatency()+'<small>MS</small>';
+const maxL=Math.max(...SLOTS.filter(s=>s).map(s=>s.lat));
+document.getElementById('slots').innerHTML=SLOTS.map((s,i)=>{
+  if(!s) return `<div class="slot empty"><div class="pw">${POWER}</div><div class="nm"><b>+ Slot ${i+1}</b></div><span class="num vmut">—</span></div>`;
+  return `<div class="slot ${s.on?'':'off'} ${i==1?'cur':''}"><div class="pw ${s.on?'on':''}">${POWER}</div><div class="nm"><b>${s.n}</b>${s.ara?'<i class="vor">ARA</i>':''}</div><span class="num ${s.on?'':'vmut'}">${s.on?fmtLat(s.lat)+' ms':'off'}</span>${s.on&&s.lat?`<div class="bar"><u style="width:${s.lat/maxL*100}%"></u></div>`:''}</div>`;
+}).join('');
+document.getElementById('pv').innerHTML=pitchView(1100,480,true);
+ruler(document.getElementById('ruler'));
+document.getElementById('wv').innerHTML=waveSVG(900,40,'#5c5b58');
+document.getElementById('lh').innerHTML=LANES.map(l=>`<div class="lh"><span class="dot" style="background:${KCOL[l.k]}"></span><b>${l.p}</b><span class="v num" style="color:${KCOL[l.k]}">${l.v}</span></div>`).join('');
+document.getElementById('lanes').innerHTML=LANES.map(l=>`<div class="lane">${laneSVG(l,1200,56,{dark:true})}</div>`).join('');
+</script></body></html>

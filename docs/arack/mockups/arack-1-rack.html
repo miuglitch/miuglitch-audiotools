@@ -1,0 +1,69 @@
+<!doctype html><html><head><meta charset="utf-8"><title>ARAck mockup 1 · Rack</title>
+<link rel="stylesheet" href="fonts.css"><link rel="stylesheet" href="base.css">
+<style>
+.main{flex:1;display:flex;min-height:0}
+.slots{width:340px;display:flex;flex-direction:column;border-right:6px solid var(--frame);background:var(--bg)}
+.slot{display:flex;align-items:center;gap:10px;padding:0 14px;height:46px;border-bottom:1px solid var(--row-line)}
+.slot:nth-child(odd){background:var(--band-a)}
+.slot .ix{width:18px;font-size:12px;font-weight:600;color:var(--th-sub)}
+.slot .nm{flex:1;min-width:0}
+.slot .nm b{display:block;font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slot .nm i{display:block;font-style:normal;font-size:11px;color:var(--th-sub);margin-top:1px}
+.slot .lt{font-size:13px;width:58px}
+.slot.off .nm b{color:var(--muted)}
+.slot.cur{background:var(--warm)!important;box-shadow:inset 4px 0 0 var(--orange)}
+.slot.empty .nm b{color:var(--muted);font-weight:400}
+.slots .foot{margin-top:auto;padding:10px 14px;display:flex;gap:6px;background:var(--ctrl-bg)}
+.view{flex:1;display:flex;flex-direction:column;min-width:0}
+.plug{flex:1;margin:14px;border:1px solid var(--tog-bd);background:var(--panel);position:relative}
+.plug .canvas{position:absolute;inset:0}
+.auto{height:330px;border-top:6px solid var(--frame);display:flex;flex-direction:column;flex-shrink:0}
+.lanes{flex:1;display:flex;flex-direction:column}
+.lane{flex:1;display:flex;border-bottom:1px solid var(--row-line)}
+.lane:nth-child(odd){background:var(--band-a)}
+.lh{width:340px;border-right:6px solid var(--frame);padding:8px 14px;display:flex;flex-direction:column;justify-content:center;gap:3px;border-left:4px solid}
+.lh b{font-size:13.5px}.lh span{font-size:12px;color:var(--th-sub)}
+.lc{flex:1;position:relative}
+.rrow{display:flex}.rrow .sp{width:340px;border-right:6px solid var(--frame);background:var(--th-bg);border-bottom:1px solid var(--row-line);font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--th-sub);padding:7px 14px}
+.rrow .ruler{flex:1}
+</style></head><body>
+<div class="app">
+ <div class="hd">
+  <div class="logo"><div class="logo-svg"></div><div class="logo-sub">ARACK</div></div>
+  <div class="iblk"><div class="lbl">Host tempo</div><div class="ro or">128.00<small>BPM</small></div></div>
+  <div class="iblk"><div class="lbl">Sample rate</div><div class="ro">48 000<small>HZ</small></div></div>
+  <div class="iblk"><div class="lbl">Total latency</div><div class="ro" id="tl"></div></div>
+  <div class="iblk"><div class="lbl">Active</div><div class="ro">6<small>/ 12</small></div></div>
+  <div class="iblk"><div class="lbl">ARA region</div><div class="ro" style="font-size:20px">Lead Vox · Take 3</div></div>
+  <div class="grow"></div>
+  <div class="iblk"><div class="lbl">Preset</div><div class="sel" style="width:200px">Vocal Chain A</div></div>
+  <div class="iblk" style="flex-direction:row;align-items:center;gap:6px"><span class="btn hd-btn">Light</span><span class="btn hd-btn">Undo</span></div>
+ </div>
+ <div class="main">
+  <div class="slots">
+   <div class="ph"><span class="t">Slots</span><span class="s">12</span><span class="grow"></span><span class="t" style="color:var(--th-sub)">Latency ms</span></div>
+   <div id="slots"></div>
+   <div class="foot"><span class="btn">+ Load</span><span class="btn">Scan</span><span class="grow" style="flex:1"></span><span class="btn">Clear</span></div>
+  </div>
+  <div class="view">
+   <div class="ph k-blue"><span class="t">03 · Linear Phase EQ</span><span class="s">VST3 · 42.67 ms latency</span><span class="grow"></span><span class="btn">Presets</span><span class="btn">A / B</span><span class="btn">Float</span><span class="btn on">Enabled</span></div>
+   <div class="plug"><div class="canvas" id="eq"></div></div>
+  </div>
+ </div>
+ <div class="auto">
+  <div class="rrow"><div class="sp">AUTOMATION · 4 PARAMETERS</div><div class="ruler" id="ruler"></div></div>
+  <div class="lanes" id="lanes"></div>
+ </div>
+</div>
+<script src="common.js"></script>
+<script>
+header(document);
+document.getElementById('tl').innerHTML=totalLatency()+'<small>MS</small>';
+document.getElementById('slots').innerHTML=SLOTS.map((s,i)=>{
+  if(!s) return `<div class="slot empty"><span class="ix">${String(i+1).padStart(2,'0')}</span><div class="pw">${POWER}</div><div class="nm"><b>Empty slot</b></div><span class="lt num vmut">—</span></div>`;
+  return `<div class="slot ${s.on?'':'off'} ${i==2?"cur":''}"><span class="ix">${String(i+1).padStart(2,'0')}</span><div class="pw ${s.on?'on':''}">${POWER}</div><div class="nm"><b>${s.n} ${s.ara?'<span class="badge b-or">ARA</span>':''}</b><i>${s.t}${s.on?'':' · disabled, not processing'}</i></div><span class="lt num ${s.on?(s.lat>10?'vor':''):'vmut'}">${s.on?fmtLat(s.lat):'—'}</span></div>`;
+}).join('');
+document.getElementById('eq').innerHTML=eqView(1100,520,false);
+ruler(document.getElementById('ruler'));
+document.getElementById('lanes').innerHTML=LANES.map(l=>`<div class="lane"><div class="lh" style="border-left-color:${KCOL[l.k]}"><b>${l.p}</b><span>${l.v} · Read</span></div><div class="lc">${laneSVG(l,1200,70)}</div></div>`).join('');
+</script></body></html>
