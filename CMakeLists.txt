@@ -13,7 +13,7 @@ option(MIUGLITCH_BUILD_PLUGINS "Build the JUCE plugins in plugins/" ON)
 option(MIUGLITCH_BUILD_TESTS   "Build the offline DSP tests in tests/" OFF)
 option(MIUGLITCH_COPY_PLUGINS  "Copy built plugins to the system plugin folder" ON)
 
-set(MIUGLITCH_JUCE_VERSION "8.0.4" CACHE STRING "JUCE tag to download when JUCE_PATH is empty")
+set(MIUGLITCH_JUCE_VERSION "8.0.13" CACHE STRING "JUCE tag to download when JUCE_PATH is empty")
 set(JUCE_PATH "" CACHE PATH "Local JUCE checkout, e.g. D:/SDKs/JUCE (empty = download JUCE ${MIUGLITCH_JUCE_VERSION})")
 
 add_subdirectory(dsp)

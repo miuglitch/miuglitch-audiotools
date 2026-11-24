@@ -25,9 +25,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout ParticulateAudioProcessor::c
         "Gain",
         juce::NormalisableRange<float> (-60.0f, 12.0f, 0.01f),
         0.0f,
-        "dB",
-        juce::AudioProcessorParameter::genericParameter,
-        [](float value, int) { return juce::String (value, 1) + " dB"; }));
+        juce::AudioParameterFloatAttributes()
+            .withLabel ("dB")
+            .withStringFromValueFunction ([](float value, int) { return juce::String (value, 1) + " dB"; })));
 
     return layout;
 }

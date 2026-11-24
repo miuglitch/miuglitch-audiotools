@@ -45,7 +45,7 @@ cmake --build build --config Release
 ```
 
 Leave out `JUCE_PATH` and CMake downloads JUCE (`MIUGLITCH_JUCE_VERSION`, default
-8.0.4) instead. Set it to the version in your local JUCE so both match.
+8.0.13, the same as `D:\SDKs\JUCE`) instead. Keep the two in step when you upgrade JUCE.
 
 Options:
 
